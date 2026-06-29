@@ -3,9 +3,11 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+import hashlib
 import json
 import mimetypes
 import re
+import secrets
 import sqlite3
 from datetime import datetime, timezone
 from http import HTTPStatus
@@ -17,7 +19,12 @@ from urllib.parse import parse_qs, unquote, urlparse
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 ASSETS_DIR = STATIC_DIR / "assets"
-DB_PATH = BASE_DIR / "parts.db"
+DEFAULT_DEPARTMENT = "parts"
+DEPARTMENTS = {
+    "parts": {"label": "Parts", "db": BASE_DIR / "parts.db", "seed": True},
+    "service": {"label": "Service", "db": BASE_DIR / "service.db", "seed": False},
+}
+ADMIN_PASSWORD_HASH = "1fe8359332f00ab7dde21a97ba3603eb06b8f68266c0a7e9e7582f0efc039dd0"
 SEED_PATH = BASE_DIR / "seed-data.json"
 MAX_JSON_BYTES = 8 * 1024 * 1024
 LOGO_TYPES = {
@@ -28,61 +35,82 @@ LOGO_TYPES = {
 }
 
 
+def normalize_department(value: object) -> str:
+    department = str(value or "").strip().lower()
+    if department in DEPARTMENTS:
+        return department
+    return DEFAULT_DEPARTMENT
+
+
+def db_path_for_department(department: str) -> Path:
+    return DEPARTMENTS[normalize_department(department)]["db"]
+
+
+def department_label(department: str) -> str:
+    return DEPARTMENTS[normalize_department(department)]["label"]
+
+
+def valid_admin_password(value: object) -> bool:
+    digest = hashlib.sha256(clean_text(value).encode("utf-8")).hexdigest()
+    return secrets.compare_digest(digest, ADMIN_PASSWORD_HASH)
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
-def connect() -> sqlite3.Connection:
-    connection = sqlite3.connect(DB_PATH)
+def connect(department: str = DEFAULT_DEPARTMENT) -> sqlite3.Connection:
+    connection = sqlite3.connect(db_path_for_department(department))
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
 
 
 def init_db() -> None:
-    with connect() as db:
-        db.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS brands (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
-                accent TEXT NOT NULL DEFAULT '#2563eb',
-                logo TEXT NOT NULL DEFAULT '',
-                sort_order INTEGER NOT NULL DEFAULT 0,
-                active INTEGER NOT NULL DEFAULT 1,
-                archived_at TEXT NOT NULL DEFAULT '',
-                deleted_at TEXT NOT NULL DEFAULT '',
-                deleted_name TEXT NOT NULL DEFAULT ''
-            );
+    for department, config in DEPARTMENTS.items():
+        with connect(department) as db:
+            db.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS brands (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    accent TEXT NOT NULL DEFAULT '#2563eb',
+                    logo TEXT NOT NULL DEFAULT '',
+                    sort_order INTEGER NOT NULL DEFAULT 0,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    archived_at TEXT NOT NULL DEFAULT '',
+                    deleted_at TEXT NOT NULL DEFAULT '',
+                    deleted_name TEXT NOT NULL DEFAULT ''
+                );
 
-            CREATE TABLE IF NOT EXISTS parts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
-                family TEXT NOT NULL DEFAULT '',
-                model TEXT NOT NULL DEFAULT '',
-                category TEXT NOT NULL DEFAULT '',
-                item TEXT NOT NULL,
-                button_text TEXT NOT NULL DEFAULT '',
-                part_number TEXT NOT NULL DEFAULT '',
-                notes TEXT NOT NULL DEFAULT '',
-                source TEXT NOT NULL DEFAULT '',
-                sort_order INTEGER NOT NULL DEFAULT 0,
-                active INTEGER NOT NULL DEFAULT 1,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
+                CREATE TABLE IF NOT EXISTS parts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+                    family TEXT NOT NULL DEFAULT '',
+                    model TEXT NOT NULL DEFAULT '',
+                    category TEXT NOT NULL DEFAULT '',
+                    item TEXT NOT NULL,
+                    button_text TEXT NOT NULL DEFAULT '',
+                    part_number TEXT NOT NULL DEFAULT '',
+                    notes TEXT NOT NULL DEFAULT '',
+                    source TEXT NOT NULL DEFAULT '',
+                    sort_order INTEGER NOT NULL DEFAULT 0,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
 
-            CREATE INDEX IF NOT EXISTS idx_parts_brand ON parts(brand_id);
-            CREATE INDEX IF NOT EXISTS idx_parts_lookup ON parts(active, family, model, category, item);
-            """
-        )
-        ensure_brand_archive_columns(db)
-        db.execute("CREATE INDEX IF NOT EXISTS idx_brands_active ON brands(active, sort_order)")
-        brand_count = db.execute("SELECT COUNT(*) FROM brands").fetchone()[0]
-        part_count = db.execute("SELECT COUNT(*) FROM parts").fetchone()[0]
+                CREATE INDEX IF NOT EXISTS idx_parts_brand ON parts(brand_id);
+                CREATE INDEX IF NOT EXISTS idx_parts_lookup ON parts(active, family, model, category, item);
+                """
+            )
+            ensure_brand_archive_columns(db)
+            db.execute("CREATE INDEX IF NOT EXISTS idx_brands_active ON brands(active, sort_order)")
+            brand_count = db.execute("SELECT COUNT(*) FROM brands").fetchone()[0]
+            part_count = db.execute("SELECT COUNT(*) FROM parts").fetchone()[0]
 
-        if brand_count == 0 and part_count == 0 and SEED_PATH.exists():
-            seed_database(db)
+            if config["seed"] and brand_count == 0 and part_count == 0 and SEED_PATH.exists():
+                seed_database(db)
 
 
 def seed_database(db: sqlite3.Connection) -> None:
@@ -224,9 +252,19 @@ def row_to_brand(row: sqlite3.Row) -> dict:
 
 class PartsHandler(BaseHTTPRequestHandler):
     server_version = "PPWorkWeb/1.0"
+    department = DEFAULT_DEPARTMENT
+
+    def db_connection(self) -> sqlite3.Connection:
+        return connect(getattr(self, "department", DEFAULT_DEPARTMENT))
+
+    def department_from_request(self, parsed) -> str:
+        params = parse_qs(parsed.query)
+        return normalize_department(first(params, "department") or self.headers.get("X-PPWork-Department"))
+
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
+        self.department = self.department_from_request(parsed)
         if parsed.path.startswith("/api/"):
             self.handle_api_get(parsed)
             return
@@ -234,6 +272,7 @@ class PartsHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
+        self.department = self.department_from_request(parsed)
         restore_brand_id = self.restore_brand_id_from_path(parsed.path)
         if restore_brand_id is not None:
             self.restore_brand(restore_brand_id)
@@ -257,6 +296,7 @@ class PartsHandler(BaseHTTPRequestHandler):
 
     def do_PUT(self) -> None:
         parsed = urlparse(self.path)
+        self.department = self.department_from_request(parsed)
         brand_id = self.brand_id_from_path(parsed.path)
         if brand_id is not None:
             self.update_brand(brand_id)
@@ -270,6 +310,7 @@ class PartsHandler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:
         parsed = urlparse(self.path)
+        self.department = self.department_from_request(parsed)
         permanent_brand_id = self.permanent_brand_id_from_path(parsed.path)
         if permanent_brand_id is not None:
             self.permanently_delete_saved_brand(permanent_brand_id)
@@ -290,6 +331,9 @@ class PartsHandler(BaseHTTPRequestHandler):
         print(f"{self.address_string()} - {format % args}")
 
     def handle_api_get(self, parsed) -> None:
+        if parsed.path == "/api/departments":
+            self.get_departments()
+            return
         if parsed.path == "/api/brands/saved":
             self.get_saved_brands()
             return
@@ -307,8 +351,14 @@ class PartsHandler(BaseHTTPRequestHandler):
             return
         self.send_error_json(HTTPStatus.NOT_FOUND, "Unknown endpoint.")
 
+    def get_departments(self) -> None:
+        self.send_json([
+            {"id": key, "label": value["label"]}
+            for key, value in DEPARTMENTS.items()
+        ])
+
     def get_brands(self) -> None:
-        with connect() as db:
+        with self.db_connection() as db:
             rows = db.execute(
                 """
                 SELECT b.id, b.name, b.accent, b.logo, b.sort_order, b.active,
@@ -327,7 +377,7 @@ class PartsHandler(BaseHTTPRequestHandler):
         )
 
     def get_saved_brands(self) -> None:
-        with connect() as db:
+        with self.db_connection() as db:
             rows = db.execute(
                 """
                 SELECT b.id, b.name, b.accent, b.logo, b.sort_order, b.active,
@@ -355,7 +405,7 @@ class PartsHandler(BaseHTTPRequestHandler):
             accent = normalize_accent(payload.get("accent"))
             logo = clean_text(payload.get("logo"))
 
-            with connect() as db:
+            with self.db_connection() as db:
                 existing = db.execute("SELECT active, deleted_at FROM brands WHERE name = ?", (name,)).fetchone()
                 if existing:
                     if existing["deleted_at"]:
@@ -399,7 +449,7 @@ class PartsHandler(BaseHTTPRequestHandler):
             if len(ordered_ids) != len(set(ordered_ids)):
                 raise ValueError("Brand order contains duplicate brands.")
 
-            with connect() as db:
+            with self.db_connection() as db:
                 existing_ids = {
                     int(row["id"])
                     for row in db.execute("SELECT id FROM brands WHERE active = 1 AND deleted_at = ''").fetchall()
@@ -466,7 +516,7 @@ class PartsHandler(BaseHTTPRequestHandler):
             accent = normalize_accent(payload.get("accent"))
             logo = clean_text(payload.get("logo"))
 
-            with connect() as db:
+            with self.db_connection() as db:
                 result = db.execute(
                     "UPDATE brands SET name = ?, accent = ?, logo = ? WHERE id = ?",
                     (name, accent, logo, brand_id),
@@ -484,7 +534,7 @@ class PartsHandler(BaseHTTPRequestHandler):
         self.send_json({"ok": True})
 
     def delete_brand(self, brand_id: int) -> None:
-        with connect() as db:
+        with self.db_connection() as db:
             row = db.execute(
                 """
                 SELECT b.name, b.active, COUNT(p.id) AS part_count
@@ -509,7 +559,7 @@ class PartsHandler(BaseHTTPRequestHandler):
         self.send_json({"ok": True})
 
     def restore_brand(self, brand_id: int) -> None:
-        with connect() as db:
+        with self.db_connection() as db:
             row = db.execute(
                 "SELECT id, active, deleted_at FROM brands WHERE id = ?",
                 (brand_id,),
@@ -539,7 +589,14 @@ class PartsHandler(BaseHTTPRequestHandler):
         self.send_json({"ok": True})
 
     def permanently_delete_saved_brand(self, brand_id: int) -> None:
-        with connect() as db:
+        payload = self.read_json()
+        if payload is None:
+            return
+        if not valid_admin_password(payload.get("adminPassword")):
+            self.send_error_json(HTTPStatus.FORBIDDEN, "Admin password is incorrect.")
+            return
+
+        with self.db_connection() as db:
             row = db.execute(
                 """
                 SELECT id, name, active, archived_at, deleted_at
@@ -581,7 +638,7 @@ class PartsHandler(BaseHTTPRequestHandler):
         params = parse_qs(parsed.query)
         brand = first(params, "brand")
 
-        with connect() as db:
+        with self.db_connection() as db:
             args = []
             where = ["p.active = 1", "b.active = 1", "b.deleted_at = ''"]
             if brand:
@@ -611,7 +668,7 @@ class PartsHandler(BaseHTTPRequestHandler):
             )
 
     def get_summary(self) -> None:
-        with connect() as db:
+        with self.db_connection() as db:
             row = db.execute(
                 """
                 SELECT COUNT(*) AS total,
@@ -659,7 +716,7 @@ class PartsHandler(BaseHTTPRequestHandler):
             )
             args.extend([like] * 7)
 
-        with connect() as db:
+        with self.db_connection() as db:
             rows = db.execute(
                 f"""
                 SELECT p.*, b.name AS brand, b.accent, b.logo
@@ -678,7 +735,7 @@ class PartsHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            with connect() as db:
+            with self.db_connection() as db:
                 brand_id = get_or_create_brand(db, clean_text(payload.get("brand")))
                 stamp = now_iso()
                 sort_order = db.execute(
@@ -720,7 +777,7 @@ class PartsHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            with connect() as db:
+            with self.db_connection() as db:
                 existing = db.execute("SELECT id FROM parts WHERE id = ?", (part_id,)).fetchone()
                 if not existing:
                     self.send_error_json(HTTPStatus.NOT_FOUND, "Part not found.")
@@ -754,7 +811,7 @@ class PartsHandler(BaseHTTPRequestHandler):
         self.send_json({"ok": True})
 
     def delete_part(self, part_id: int) -> None:
-        with connect() as db:
+        with self.db_connection() as db:
             result = db.execute(
                 "UPDATE parts SET active = 0, updated_at = ? WHERE id = ?",
                 (now_iso(), part_id),
@@ -765,11 +822,12 @@ class PartsHandler(BaseHTTPRequestHandler):
         self.send_json({"ok": True})
 
     def reseed(self) -> None:
-        with connect() as db:
+        with self.db_connection() as db:
             db.execute("DELETE FROM parts")
             db.execute("DELETE FROM brands")
             db.execute("DELETE FROM sqlite_sequence WHERE name IN ('parts', 'brands')")
-            seed_database(db)
+            if self.department == DEFAULT_DEPARTMENT:
+                seed_database(db)
         self.send_json({"ok": True})
 
     def read_json(self) -> dict | None:
@@ -864,7 +922,8 @@ def main() -> None:
     init_db()
     server = ThreadingHTTPServer((args.host, args.port), PartsHandler)
     print(f"PPWork Web is running at http://{args.host}:{args.port}")
-    print(f"Database: {DB_PATH}")
+    for value in DEPARTMENTS.values():
+        print(f"{value['label']} database: {value['db']}")
     server.serve_forever()
 
 

@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -10,7 +10,7 @@
     <div class="app-shell">
       <header class="topbar">
         <div>
-          <p class="eyebrow">Parts Department</p>
+          <p id="department-eyebrow" class="eyebrow">Parts Department</p>
           <h1>Independence County Offroad</h1>
         </div>
         <div class="topbar-actions">
@@ -129,12 +129,34 @@
       <div class="settings-layout">
         <section class="settings-panel">
           <div class="settings-panel-header">
+            <h3>Department</h3>
+          </div>
+          <div class="department-switch" role="group" aria-label="Department">
+            <button id="department-parts-button" class="department-button" type="button">Parts</button>
+            <button id="department-service-button" class="department-button" type="button">Service</button>
+          </div>
+        </section>
+
+        <section class="settings-panel">
+          <div class="settings-panel-header">
             <h3>Theme</h3>
           </div>
-          <label class="toggle settings-toggle">
-            <input id="theme-toggle" type="checkbox">
-            <span>Dark Theme</span>
-          </label>
+          <div class="theme-controls">
+            <label class="toggle settings-toggle">
+              <input id="theme-toggle" type="checkbox">
+              <span>Dark Theme</span>
+            </label>
+            <label class="theme-select">
+              <span>Theme Style</span>
+              <select id="theme-variant">
+                <option value="classic">Classic</option>
+                <option value="trail">Trail</option>
+                <option value="service">Service</option>
+                <option value="contrast">High Contrast</option>
+                <option value="sunset">Sunset</option>
+              </select>
+            </label>
+          </div>
           <div class="settings-inline">
             <label>
               <span>Brand Order</span>
@@ -202,3 +224,5 @@
     <script src="/app.js"></script>
   </body>
 </html>
+
+

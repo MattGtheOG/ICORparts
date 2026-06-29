@@ -1,8 +1,9 @@
-const state = {
+﻿const state = {
   brands: [],
   savedBrands: [],
   summary: { active: 0, unassigned: 0 },
   parts: [],
+  department: localStorage.getItem("ppwork-department") || "parts",
   filters: {
     brand: "",
     family: "",
@@ -13,6 +14,7 @@ const state = {
   editMode: false,
   editingBrandId: "",
   darkTheme: false,
+  themeVariant: "classic",
   brandOrderMode: "az",
   customBrandOrder: [],
 };
@@ -21,6 +23,7 @@ const els = {};
 
 document.addEventListener("DOMContentLoaded", () => {
   [
+    "department-eyebrow",
     "active-count",
     "unassigned-count",
     "brand-list",
@@ -51,7 +54,10 @@ document.addEventListener("DOMContentLoaded", () => {
     "settings-dialog",
     "close-settings",
     "done-settings",
+    "department-parts-button",
+    "department-service-button",
     "theme-toggle",
+    "theme-variant",
     "brand-order-mode",
     "lock-brand-order-button",
     "settings-brand-list",
@@ -68,7 +74,9 @@ document.addEventListener("DOMContentLoaded", () => {
     els[toCamel(id)] = document.getElementById(id);
   });
 
+  applyDepartment(state.department);
   applyTheme(localStorage.getItem("ppwork-theme") === "dark");
+  applyThemeVariant(localStorage.getItem("ppwork-theme-variant") || "classic");
   applyBrandOrderMode(localStorage.getItem("ppwork-brand-order") || "az");
   wireEvents();
   refreshAll();
@@ -108,7 +116,10 @@ function wireEvents() {
   els.deleteButton.addEventListener("click", deletePart);
   els.closeSettings.addEventListener("click", () => els.settingsDialog.close());
   els.doneSettings.addEventListener("click", () => els.settingsDialog.close());
+  els.departmentPartsButton.addEventListener("click", () => switchDepartment("parts"));
+  els.departmentServiceButton.addEventListener("click", () => switchDepartment("service"));
   els.themeToggle.addEventListener("change", () => applyTheme(els.themeToggle.checked));
+  els.themeVariant.addEventListener("change", () => applyThemeVariant(els.themeVariant.value));
   els.brandOrderMode.addEventListener("change", () => setBrandOrderMode(els.brandOrderMode.value));
   els.lockBrandOrderButton.addEventListener("click", lockCustomBrandOrder);
   els.newBrandButton.addEventListener("click", () => openBrandEditor());
@@ -460,10 +471,13 @@ async function selectBrand(name) {
 }
 
 function openSettings() {
+  renderDepartmentControls();
   renderBrandSettings();
   renderSavedBrandSettings();
   if (state.brands.length && !state.editingBrandId) {
     openBrandEditor(orderedBrands()[0]);
+  } else if (!state.brands.length) {
+    openBrandEditor(null);
   }
   els.settingsDialog.showModal();
 }
@@ -798,29 +812,18 @@ async function restoreBrand(brand) {
 
 async function permanentlyDeleteSavedBrand(brand) {
   const partCount = brand.partCount || 0;
-  const firstConfirmation = window.confirm(
-    `Permanently delete ${brand.name} from Saved Brands? It will no longer be restorable from this app.`,
+  const adminPassword = window.prompt(
+    `Admin password required to permanently remove ${brand.name} from Saved Brands. ${partCount} part records will remain only in the database for admin backup.`,
   );
-  if (!firstConfirmation) {
-    return;
-  }
-
-  const secondConfirmation = window.confirm(
-    `This will remove ${partCount} saved part numbers for ${brand.name} from normal use. They will remain only in the database for an admin backup.`,
-  );
-  if (!secondConfirmation) {
-    return;
-  }
-
-  const thirdConfirmation = window.confirm(
-    `Final warning: delete ${brand.name} forever from Saved Brands? There will be no restore button after this.`,
-  );
-  if (!thirdConfirmation) {
+  if (adminPassword === null) {
     return;
   }
 
   try {
-    await api(`/api/brands/${brand.id}/permanent`, { method: "DELETE" });
+    await api(`/api/brands/${brand.id}/permanent`, {
+      method: "DELETE",
+      body: JSON.stringify({ adminPassword }),
+    });
     await refreshAll();
     showFeedback(`${brand.name} permanently removed from Saved Brands.`, "warn");
   } catch (error) {
@@ -864,12 +867,14 @@ function fillSelect(select, label, values, selected) {
 }
 
 async function api(path, options = {}) {
-  const response = await fetch(path, {
+  const url = apiUrl(path);
+  const response = await fetch(url, {
+    ...options,
     headers: {
       "Content-Type": "application/json",
+      "X-PPWork-Department": state.department,
       ...(options.headers || {}),
     },
-    ...options,
   });
 
   const payload = await response.json();
@@ -877,6 +882,56 @@ async function api(path, options = {}) {
     throw new Error(payload.error || "Request failed.");
   }
   return payload;
+}
+
+function apiUrl(path) {
+  const url = new URL(path, window.location.origin);
+  if (url.pathname.startsWith("/api/")) {
+    url.searchParams.set("department", state.department);
+  }
+  return `${url.pathname}${url.search}`;
+}
+
+async function switchDepartment(department) {
+  if (state.department === department) {
+    renderDepartmentControls();
+    return;
+  }
+
+  applyDepartment(department);
+  state.filters = { brand: "", family: "", model: "", category: "", q: "" };
+  state.editingBrandId = "";
+  els.searchInput.value = "";
+  await refreshAll();
+  if (els.settingsDialog.open) {
+    openBrandEditor(orderedBrands()[0] || null);
+  }
+  showFeedback(`${departmentLabel()} department loaded.`, "ok");
+}
+
+function applyDepartment(department) {
+  state.department = ["parts", "service"].includes(department) ? department : "parts";
+  localStorage.setItem("ppwork-department", state.department);
+  renderDepartmentControls();
+}
+
+function renderDepartmentControls() {
+  const isParts = state.department === "parts";
+  if (els.departmentEyebrow) {
+    els.departmentEyebrow.textContent = `${departmentLabel()} Department`;
+  }
+  if (els.departmentPartsButton) {
+    els.departmentPartsButton.classList.toggle("is-active", isParts);
+    els.departmentPartsButton.setAttribute("aria-pressed", String(isParts));
+  }
+  if (els.departmentServiceButton) {
+    els.departmentServiceButton.classList.toggle("is-active", !isParts);
+    els.departmentServiceButton.setAttribute("aria-pressed", String(!isParts));
+  }
+}
+
+function departmentLabel() {
+  return state.department === "service" ? "Service" : "Parts";
 }
 
 function showFeedback(message, type = "ok") {
@@ -898,6 +953,16 @@ function applyTheme(enabled) {
   }
 }
 
+function applyThemeVariant(variant) {
+  const allowed = ["classic", "trail", "service", "contrast", "sunset"];
+  state.themeVariant = allowed.includes(variant) ? variant : "classic";
+  document.documentElement.dataset.themeVariant = state.themeVariant;
+  localStorage.setItem("ppwork-theme-variant", state.themeVariant);
+  if (els.themeVariant) {
+    els.themeVariant.value = state.themeVariant;
+  }
+}
+
 function normalizeColor(value) {
   return /^#[0-9a-f]{6}$/i.test(value || "") ? value : "#2563eb";
 }
@@ -913,3 +978,6 @@ function debounce(fn, wait) {
 function toCamel(id) {
   return id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
 }
+
+
+

@@ -10,7 +10,7 @@ Open `Start-PPWorkWeb.bat` from this folder. It starts the local web server and 
 http://localhost:8765/
 ```
 
-The app uses `parts.db` in this folder as its SQLite database. If `parts.db` does not exist, it is created from `seed-data.json`.
+The app uses `parts.db` for the Parts department and `service.db` for the Service department. `parts.db` is created from `seed-data.json` when missing; `service.db` starts empty so Service can add only the brands and part records they need.
 
 ## Editing Part Numbers
 
@@ -20,7 +20,7 @@ The original Can-Am form only had model choices and no saved part-number buttons
 
 ## Brands And Theme
 
-Open `Settings` to add or rename brands, update a brand color, upload a logo into `static/assets`, set an optional logo path, switch between light and dark theme, or choose the brand order. Brand order can be A-Z, Z-A, most parts, least parts, or a custom order that can be locked into the database. Deleting a brand asks twice, then saves and hides the brand with its parts so it can be restored later from `Saved Brands`. Saved brands can also be removed forever from the app after three confirmations; their old database rows and part numbers stay available for admin backup.
+Open `Settings` to choose the active department, add or rename brands, update a brand color, upload a logo into `static/assets`, set an optional logo path, switch between light and dark theme, or choose the brand order. Brand order can be A-Z, Z-A, most parts, least parts, or a custom order that can be locked into the database. Deleting a brand asks twice, then saves and hides the brand with its parts so it can be restored later from `Saved Brands`. Saved brands can also be removed forever from the app after entering the admin password; their old database rows and part numbers stay available for admin backup.
 
 ## Moving To Another PC
 

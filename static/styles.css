@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   color-scheme: light;
   --bg: #f5f7f8;
   --panel: #ffffff;
@@ -48,6 +48,146 @@
   --number-bg: #020617;
   --warn-bg: #2b2115;
   --dialog-actions-bg: #111a2b;
+}
+:root[data-theme-variant="trail"] {
+  --bg: #f3f8f2;
+  --accent: #15803d;
+  --success: #166534;
+  --warning: #a16207;
+  --topbar-bg: #173321;
+  --topbar-line: #84cc16;
+  --number-bg: #12301d;
+}
+
+:root[data-theme="dark"][data-theme-variant="trail"] {
+  --bg: #0d1f16;
+  --panel: #14261c;
+  --ink: #f3fff5;
+  --muted: #a8c7b2;
+  --line: #2d4a37;
+  --soft-line: #213c2b;
+  --field: #0f2117;
+  --field-border: #3d6549;
+  --tile-bg: #102219;
+  --mark-bg: #203b2a;
+  --count-bg: #203b2a;
+  --count-ink: #dcfce7;
+  --accent: #86efac;
+  --topbar-bg: #07140d;
+  --topbar-line: #84cc16;
+  --number-bg: #020f08;
+  --warn-bg: #261f0f;
+}
+
+:root[data-theme-variant="service"] {
+  --bg: #f6f8fb;
+  --accent: #0f766e;
+  --success: #0f766e;
+  --warning: #b45309;
+  --topbar-bg: #1f2937;
+  --topbar-line: #14b8a6;
+  --number-bg: #0f172a;
+}
+
+:root[data-theme="dark"][data-theme-variant="service"] {
+  --bg: #101820;
+  --panel: #18232e;
+  --ink: #f5f7fb;
+  --muted: #a9b8c7;
+  --line: #334556;
+  --soft-line: #263646;
+  --field: #111c26;
+  --field-border: #40566b;
+  --tile-bg: #121f2b;
+  --mark-bg: #243444;
+  --count-bg: #243444;
+  --count-ink: #ccfbf1;
+  --accent: #5eead4;
+  --topbar-bg: #071016;
+  --topbar-line: #14b8a6;
+  --number-bg: #020617;
+  --warn-bg: #2b2114;
+}
+
+:root[data-theme-variant="contrast"] {
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --ink: #050505;
+  --muted: #343434;
+  --line: #111111;
+  --soft-line: #6b7280;
+  --field: #ffffff;
+  --field-border: #111111;
+  --tile-bg: #ffffff;
+  --mark-bg: #f3f4f6;
+  --count-bg: #111111;
+  --count-ink: #ffffff;
+  --accent: #005fcc;
+  --success: #006b3c;
+  --warning: #8a4b00;
+  --danger: #b00020;
+  --topbar-bg: #000000;
+  --topbar-line: #ffd400;
+  --number-bg: #000000;
+  --warn-bg: #fff3cd;
+}
+
+:root[data-theme="dark"][data-theme-variant="contrast"] {
+  --bg: #000000;
+  --panel: #050505;
+  --ink: #ffffff;
+  --muted: #e5e7eb;
+  --line: #ffffff;
+  --soft-line: #9ca3af;
+  --field: #000000;
+  --field-border: #ffffff;
+  --tile-bg: #000000;
+  --mark-bg: #1f2937;
+  --count-bg: #ffffff;
+  --count-ink: #000000;
+  --accent: #66ccff;
+  --success: #7dffb2;
+  --warning: #ffd166;
+  --danger: #ff8a9a;
+  --topbar-bg: #000000;
+  --topbar-line: #ffd400;
+  --number-bg: #ffffff;
+  --warn-bg: #2a2100;
+}
+
+:root[data-theme="dark"][data-theme-variant="contrast"] .part-number,
+:root[data-theme="dark"][data-theme-variant="contrast"] .primary-button {
+  color: #000000;
+}
+
+:root[data-theme-variant="sunset"] {
+  --bg: #f8f6f3;
+  --accent: #c2410c;
+  --success: #0f766e;
+  --warning: #a16207;
+  --topbar-bg: #3b2431;
+  --topbar-line: #f97316;
+  --number-bg: #3b2431;
+}
+
+:root[data-theme="dark"][data-theme-variant="sunset"] {
+  --bg: #1d171b;
+  --panel: #281f25;
+  --ink: #fff7ed;
+  --muted: #d4bfb2;
+  --line: #4a3742;
+  --soft-line: #392b34;
+  --field: #211920;
+  --field-border: #5b4652;
+  --tile-bg: #241b22;
+  --mark-bg: #3b2c36;
+  --count-bg: #3b2c36;
+  --count-ink: #ffedd5;
+  --accent: #fb923c;
+  --topbar-bg: #120d11;
+  --topbar-line: #f97316;
+  --number-bg: #080608;
+  --warn-bg: #2b1d16;
 }
 
 * {
@@ -598,9 +738,50 @@ dialog::backdrop {
   font-size: 1rem;
 }
 
+.department-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+
+.department-button {
+  min-height: 40px;
+  border: 1px solid var(--field-border);
+  border-radius: 6px;
+  background: var(--field);
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.department-button:hover,
+.department-button:focus-visible,
+.department-button.is-active {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.department-button.is-active {
+  background: var(--number-bg);
+  color: #ffffff;
+}
+
+.theme-controls {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 260px);
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+}
+
 .settings-toggle {
   width: fit-content;
-  margin: 12px;
+  margin: 0;
+}
+
+.theme-select {
+  min-width: 0;
 }
 
 .settings-inline {
@@ -801,6 +982,8 @@ dialog::backdrop {
   .brand-settings,
   .brand-form,
   .settings-inline,
+  .department-switch,
+  .theme-controls,
   .saved-brand-row {
     grid-template-columns: 1fr;
   }
@@ -825,3 +1008,6 @@ dialog::backdrop {
     flex: 1 1 120px;
   }
 }
+
+
+
