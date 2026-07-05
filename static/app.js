@@ -1,8 +1,11 @@
-﻿const state = {
+﻿const FAVORITES_FILTER = "__favorites__";
+
+const state = {
   brands: [],
   savedBrands: [],
   summary: { active: 0, unassigned: 0 },
   parts: [],
+  favoriteIds: new Set(),
   department: localStorage.getItem("ppwork-department") || "parts",
   filters: {
     brand: "",
@@ -147,11 +150,14 @@ async function loadBrands() {
   state.brands = brands;
   state.savedBrands = savedBrands;
   syncCustomBrandOrder();
-  if (state.filters.brand && !state.brands.some((brand) => brand.name === state.filters.brand)) {
-    state.filters.brand = "";
-    state.filters.family = "";
-    state.filters.model = "";
-    state.filters.category = "";
+  if (state.filters.brand === FAVORITES_FILTER && !hasFavorites()) {
+    clearBrandFilters();
+  } else if (
+    state.filters.brand &&
+    state.filters.brand !== FAVORITES_FILTER &&
+    !state.brands.some((brand) => brand.name === state.filters.brand)
+  ) {
+    clearBrandFilters();
   }
   if (state.editingBrandId && !state.brands.some((brand) => String(brand.id) === String(state.editingBrandId))) {
     state.editingBrandId = "";
@@ -164,7 +170,7 @@ async function loadBrands() {
 
 async function loadOptions() {
   const query = new URLSearchParams();
-  if (state.filters.brand) {
+  if (state.filters.brand && state.filters.brand !== FAVORITES_FILTER) {
     query.set("brand", state.filters.brand);
   }
   const options = await api(`/api/options?${query.toString()}`);
@@ -176,9 +182,10 @@ async function loadOptions() {
 async function loadParts() {
   const query = new URLSearchParams();
   Object.entries(state.filters).forEach(([key, value]) => {
-    if (value) {
-      query.set(key, value);
+    if (!value || (key === "brand" && value === FAVORITES_FILTER)) {
+      return;
     }
+    query.set(key, value);
   });
 
   state.parts = await api(`/api/parts?${query.toString()}`);
@@ -198,6 +205,20 @@ function renderBrands() {
   allButton.classList.toggle("is-active", state.filters.brand === "");
   allButton.addEventListener("click", () => selectBrand(""));
   els.brandList.appendChild(allButton);
+
+  if (hasFavorites()) {
+    const favoritesButton = brandButton({
+      name: "Favorites",
+      partCount: state.favoriteIds.size,
+      unassignedCount: 0,
+      accent: "#eab308",
+      logo: "",
+      isFavorites: true,
+    });
+    favoritesButton.classList.toggle("is-active", state.filters.brand === FAVORITES_FILTER);
+    favoritesButton.addEventListener("click", () => selectBrand(FAVORITES_FILTER));
+    els.brandList.appendChild(favoritesButton);
+  }
 
   orderedBrands().forEach((brand) => {
     const button = brandButton(brand);
@@ -426,7 +447,10 @@ function brandButton(brand) {
 
   const mark = document.createElement("span");
   mark.className = "brand-mark";
-  if (brand.logo) {
+  if (brand.isFavorites) {
+    mark.classList.add("is-favorite-mark");
+    mark.textContent = "\u2605";
+  } else if (brand.logo) {
     const img = document.createElement("img");
     img.src = brand.logo;
     img.alt = "";
@@ -461,6 +485,10 @@ function brandButton(brand) {
 }
 
 async function selectBrand(name) {
+  if (name === FAVORITES_FILTER && !hasFavorites()) {
+    return;
+  }
+
   state.filters.brand = name;
   state.filters.family = "";
   state.filters.model = "";
@@ -497,7 +525,7 @@ function openBrandEditor(brand = null) {
 function renderParts() {
   els.partBoard.replaceChildren();
 
-  const parts = orderedParts();
+  const parts = orderedParts(visibleParts());
   if (!parts.length) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
@@ -534,9 +562,9 @@ function renderParts() {
   });
 }
 
-function orderedParts() {
+function orderedParts(parts = state.parts) {
   const brandRanks = new Map(orderedBrands().map((brand, index) => [brand.name, index]));
-  return [...state.parts].sort((a, b) => {
+  return [...parts].sort((a, b) => {
     const brandRank = (brandRanks.get(a.brand) ?? 9999) - (brandRanks.get(b.brand) ?? 9999);
     if (brandRank !== 0) {
       return brandRank;
@@ -566,12 +594,17 @@ function groupedParts(parts) {
 }
 
 function partTile(part) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "part-tile";
-  button.dataset.partId = String(part.id);
-  button.classList.toggle("is-unassigned", !part.partNumber);
-  button.style.setProperty("--brand-accent", part.accent || "#2563eb");
+  const tile = document.createElement("article");
+  tile.className = "part-tile";
+  tile.dataset.partId = String(part.id);
+  tile.tabIndex = 0;
+  tile.setAttribute("role", "button");
+  tile.setAttribute(
+    "aria-label",
+    part.partNumber ? `Copy ${part.partNumber} for ${part.item}` : `Open ${part.item}`,
+  );
+  tile.classList.toggle("is-unassigned", !part.partNumber);
+  tile.style.setProperty("--brand-accent", part.accent || "#2563eb");
 
   const title = document.createElement("span");
   title.className = "part-title";
@@ -581,20 +614,110 @@ function partTile(part) {
   meta.className = "part-meta";
   meta.textContent = part.buttonText && part.buttonText !== part.item ? part.buttonText : part.category;
 
+  const numberRow = document.createElement("span");
+  numberRow.className = "part-number-row";
+
+  const favorite = document.createElement("button");
+  const favoriteActive = isFavorite(part);
+  favorite.type = "button";
+  favorite.className = "favorite-button";
+  favorite.classList.toggle("is-favorite", favoriteActive);
+  favorite.textContent = favoriteActive ? "\u2605" : "\u2606";
+  favorite.setAttribute("aria-pressed", String(favoriteActive));
+  favorite.setAttribute(
+    "aria-label",
+    `${favoriteActive ? "Remove" : "Add"} ${part.item} ${favoriteActive ? "from" : "to"} favorites`,
+  );
+  favorite.addEventListener("click", (event) => {
+    event.stopPropagation();
+    void toggleFavorite(part);
+  });
+
   const number = document.createElement("span");
   number.className = "part-number";
   number.textContent = part.partNumber || "Needs number";
 
-  button.append(title, meta, number);
-  button.addEventListener("click", () => {
-    if (state.editMode) {
-      openEditor(part);
-    } else {
-      copyPart(part);
+  numberRow.append(favorite, number);
+  tile.append(title, meta, numberRow);
+  tile.addEventListener("click", () => handlePartAction(part));
+  tile.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handlePartAction(part);
     }
   });
 
-  return button;
+  return tile;
+}
+
+function handlePartAction(part) {
+  if (state.editMode) {
+    openEditor(part);
+  } else {
+    copyPart(part);
+  }
+}
+
+function visibleParts() {
+  if (state.filters.brand !== FAVORITES_FILTER) {
+    return state.parts;
+  }
+  return state.parts.filter((part) => isFavorite(part));
+}
+
+function isFavorite(part) {
+  return state.favoriteIds.has(String(part.id));
+}
+
+function hasFavorites() {
+  return state.favoriteIds.size > 0;
+}
+
+async function toggleFavorite(part) {
+  const favoriteId = String(part.id);
+  const wasFavorite = state.favoriteIds.has(favoriteId);
+  if (wasFavorite) {
+    state.favoriteIds.delete(favoriteId);
+  } else {
+    state.favoriteIds.add(favoriteId);
+  }
+  saveFavorites();
+
+  if (!hasFavorites() && state.filters.brand === FAVORITES_FILTER) {
+    clearBrandFilters();
+    await loadOptions();
+    renderBrands();
+    await loadParts();
+  } else {
+    renderBrands();
+    renderParts();
+  }
+
+  showFeedback(`${part.item} ${wasFavorite ? "removed from" : "added to"} favorites.`, wasFavorite ? "warn" : "ok");
+}
+
+function loadFavorites() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(favoritesStorageKey()) || "[]");
+    state.favoriteIds = new Set(Array.isArray(raw) ? raw.map(String).filter(Boolean) : []);
+  } catch (error) {
+    state.favoriteIds = new Set();
+  }
+}
+
+function saveFavorites() {
+  localStorage.setItem(favoritesStorageKey(), JSON.stringify([...state.favoriteIds]));
+}
+
+function favoritesStorageKey() {
+  return `ppwork-favorites-${state.department}`;
+}
+
+function clearBrandFilters() {
+  state.filters.brand = "";
+  state.filters.family = "";
+  state.filters.model = "";
+  state.filters.category = "";
 }
 
 async function copyPart(part) {
@@ -688,6 +811,8 @@ async function deletePart() {
   }
 
   await api(`/api/parts/${id}`, { method: "DELETE" });
+  state.favoriteIds.delete(String(id));
+  saveFavorites();
   els.partDialog.close();
   await refreshAll();
   showFeedback(`${item} deleted.`, "warn");
@@ -912,6 +1037,7 @@ async function switchDepartment(department) {
 function applyDepartment(department) {
   state.department = ["parts", "service"].includes(department) ? department : "parts";
   localStorage.setItem("ppwork-department", state.department);
+  loadFavorites();
   renderDepartmentControls();
 }
 

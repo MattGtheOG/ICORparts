@@ -365,6 +365,11 @@ h1 {
   object-fit: contain;
 }
 
+.brand-mark.is-favorite-mark {
+  background: #facc15;
+  color: #422006;
+}
+
 .brand-body {
   min-width: 0;
   display: grid;
@@ -568,6 +573,7 @@ select:focus {
   background: var(--tile-bg);
   color: var(--ink);
   text-align: left;
+  cursor: pointer;
 }
 
 .part-tile:hover,
@@ -599,8 +605,44 @@ select:focus {
   white-space: nowrap;
 }
 
-.part-number {
+.part-number-row {
   align-self: end;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+.favorite-button {
+  min-width: 32px;
+  min-height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--soft-line);
+  border-radius: 6px;
+  background: var(--field);
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.favorite-button:hover,
+.favorite-button:focus-visible {
+  border-color: #eab308;
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #eab308 24%, transparent);
+}
+
+.favorite-button.is-favorite {
+  border-color: #ca8a04;
+  background: #facc15;
+  color: #422006;
+}
+
+.part-number {
   width: 100%;
   min-height: 30px;
   display: inline-flex;
