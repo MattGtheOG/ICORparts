@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -11,13 +11,14 @@
       <header class="topbar">
         <div>
           <p id="department-eyebrow" class="eyebrow">Parts Department</p>
-          <h1>Independence County Offroad</h1>
+          <h1 id="app-title">Independence County Offroad</h1>
         </div>
         <div class="topbar-actions">
           <div class="status-panel">
             <span id="active-count">0 active</span>
             <span id="unassigned-count">0 need numbers</span>
           </div>
+          <button id="employee-button" class="topbar-button" type="button">Employee: Guest</button>
           <button id="settings-button" class="topbar-button" type="button">Settings</button>
         </div>
       </header>
@@ -34,6 +35,23 @@
               <input id="search-input" type="search" autocomplete="off" placeholder="part, model, number">
             </label>
 
+            <label class="saved-search-field">
+              <span>Preset</span>
+              <select id="saved-search-select"></select>
+            </label>
+            <button id="save-search-preset-button" class="secondary-button compact-button" type="button">Save Search</button>
+            <button id="delete-search-preset-button" class="secondary-button compact-button" type="button">Delete Preset</button>
+            <label class="copy-template-field">
+              <span>Copy Format</span>
+              <select id="copy-template-select">
+                <option value="number">Part Number Only</option>
+                <option value="numberItem">Number + Item</option>
+                <option value="brandItemNumber">Brand + Item + Number</option>
+                <option value="repairOrder">Repair Order Line</option>
+                <option value="dmsRow">DMS Row</option>
+                <option value="csvRow">CSV Row</option>
+              </select>
+            </label>
             <label>
               <span>Family</span>
               <select id="family-filter"></select>
@@ -49,6 +67,18 @@
               <select id="category-filter"></select>
             </label>
 
+            <label>
+              <span>View</span>
+              <select id="view-filter">
+                <option value="all">All</option>
+                <option value="missing">Missing Numbers</option>
+                <option value="superseded">Superseded</option>
+                <option value="favorites">Favorites</option>
+                <option value="recent">Recently Updated</option>
+                <option value="review">Needs Review</option>
+              </select>
+            </label>
+
             <label class="toggle">
               <input id="edit-toggle" type="checkbox">
               <span>Edit</span>
@@ -57,7 +87,42 @@
             <button id="add-button" class="command-button" type="button">Add Part</button>
           </div>
 
+          <div id="fitment-toolbar" class="fitment-toolbar" aria-label="Fitment filters">
+            <label>
+              <span>Year</span>
+              <input id="year-filter" type="number" inputmode="numeric" min="1900" max="2100" placeholder="Any year">
+            </label>
+            <label>
+              <span>Make</span>
+              <select id="make-filter"></select>
+            </label>
+            <label>
+              <span>Unit Model</span>
+              <select id="fitment-model-filter"></select>
+            </label>
+            <label>
+              <span>Unit Type</span>
+              <select id="unit-type-filter"></select>
+            </label>
+            <button id="clear-fitment-button" class="secondary-button compact-button" type="button">Clear Fitment</button>
+          </div>
+
           <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
+          <div id="quick-panels" class="quick-panels" hidden>
+            <section class="quick-panel">
+              <div class="quick-panel-header">
+                <h2>Recently Copied</h2>
+                <button id="clear-copy-history-button" class="secondary-button compact-button" type="button">Clear</button>
+              </div>
+              <div id="recent-copy-list" class="quick-list"></div>
+            </section>
+            <section class="quick-panel">
+              <div class="quick-panel-header">
+                <h2>Most Used</h2>
+              </div>
+              <div id="most-used-list" class="quick-list"></div>
+            </section>
+          </div>
           <div id="part-board" class="part-board"></div>
         </section>
       </main>
@@ -66,6 +131,39 @@
         Programmed by Matt Gaston
       </footer>
     </div>
+
+    <dialog id="setup-dialog" class="setup-dialog">
+      <form id="setup-form" method="dialog">
+        <div class="dialog-header">
+          <h2>First Admin Setup</h2>
+        </div>
+        <div class="setup-copy">
+          Create the live admin account for this installation.
+        </div>
+        <div class="form-grid">
+          <label>
+            <span>Name</span>
+            <input id="setup-admin-name" autocomplete="name" placeholder="Matt Gaston" required>
+          </label>
+          <label>
+            <span>Username</span>
+            <input id="setup-admin-username" autocomplete="username" placeholder="admin" required>
+          </label>
+          <label>
+            <span>Password</span>
+            <input id="setup-admin-password" type="password" autocomplete="new-password" required>
+          </label>
+          <label>
+            <span>Confirm Password</span>
+            <input id="setup-admin-password-confirm" type="password" autocomplete="new-password" required>
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <span class="dialog-spacer"></span>
+          <button class="primary-button" type="submit">Create Admin</button>
+        </div>
+      </form>
+    </dialog>
 
     <dialog id="part-dialog">
       <form id="part-form" method="dialog">
@@ -94,6 +192,37 @@
             <input id="part-category">
           </label>
           <label>
+            <span>Year Start</span>
+            <input id="part-year-start" type="number" inputmode="numeric" min="1900" max="2100">
+          </label>
+          <label>
+            <span>Year End</span>
+            <input id="part-year-end" type="number" inputmode="numeric" min="1900" max="2100">
+          </label>
+          <label>
+            <span>Make</span>
+            <input id="part-make" placeholder="Polaris, Honda, Can-Am">
+          </label>
+          <label>
+            <span>Fitment Model</span>
+            <input id="part-fitment-model" placeholder="Ranger, Rancher, Defender">
+          </label>
+          <label>
+            <span>Unit Type</span>
+            <input id="part-unit-type" placeholder="ATV, UTV, Motorcycle">
+          </label>
+          <label>
+            <span>Review Status</span>
+            <select id="part-review-status">
+              <option value="approved">Approved</option>
+              <option value="needs-review">Needs Review</option>
+            </select>
+          </label>
+          <label>
+            <span>Review Note</span>
+            <input id="part-review-note" placeholder="Reason this needs confirmation">
+          </label>
+          <label>
             <span>Item</span>
             <input id="part-item" required>
           </label>
@@ -106,6 +235,38 @@
             <input id="part-number">
           </label>
           <label>
+            <span>Old Part Number</span>
+            <input id="part-old-part-number">
+          </label>
+          <label>
+            <span>New Part Number</span>
+            <input id="part-new-part-number">
+          </label>
+          <label>
+            <span>Vendor</span>
+            <input id="part-vendor">
+          </label>
+          <label>
+            <span>Alternate Numbers</span>
+            <input id="part-alternate-numbers">
+          </label>
+          <label>
+            <span>Aftermarket Numbers</span>
+            <input id="part-aftermarket-numbers">
+          </label>
+          <label>
+            <span>Tags</span>
+            <input id="part-tags">
+          </label>
+          <label class="wide-field">
+            <span>Fitment Notes</span>
+            <input id="part-fitment-notes">
+          </label>
+          <label class="wide-field">
+            <span>Attachment Link</span>
+            <input id="part-attachment-url" placeholder="https:// or file reference">
+          </label>
+          <label class="wide-field">
             <span>Notes</span>
             <input id="part-notes">
           </label>
@@ -127,7 +288,7 @@
       </div>
 
       <div class="settings-layout">
-        <section class="settings-panel">
+        <section class="settings-panel settings-persistent-panel">
           <div class="settings-panel-header">
             <h3>Department</h3>
           </div>
@@ -137,7 +298,7 @@
           </div>
         </section>
 
-        <section class="settings-panel">
+        <section class="settings-panel settings-persistent-panel">
           <div class="settings-panel-header">
             <h3>Theme</h3>
           </div>
@@ -156,23 +317,144 @@
                 <option value="sunset">Sunset</option>
               </select>
             </label>
-          </div>
-          <div class="settings-inline">
-            <label>
-              <span>Brand Order</span>
-              <select id="brand-order-mode">
-                <option value="az">A-Z</option>
-                <option value="za">Z-A</option>
-                <option value="most">Most Parts</option>
-                <option value="least">Least Parts</option>
-                <option value="custom">Custom</option>
+            <label class="theme-select">
+              <span>Density</span>
+              <select id="density-mode">
+                <option value="comfortable">Comfortable</option>
+                <option value="compact">Compact</option>
+                <option value="service-bay">Service Bay</option>
               </select>
             </label>
-            <button id="lock-brand-order-button" class="secondary-button compact-button" type="button">Lock Custom Order</button>
           </div>
         </section>
 
-        <section class="settings-panel">
+        <div class="settings-tabs" role="tablist" aria-label="Settings sections">
+          <button class="settings-tab is-active" type="button" role="tab" aria-selected="true" data-settings-tab="employees">Employees</button>
+          <button class="settings-tab" type="button" role="tab" aria-selected="false" data-settings-tab="dealership">Dealership</button>
+          <button class="settings-tab" type="button" role="tab" aria-selected="false" data-settings-tab="brands">Brands</button>
+        </div>
+
+        <section id="settings-tab-employees" class="settings-panel settings-tab-panel is-active" data-settings-tab-panel="employees" role="tabpanel">
+          <div class="settings-panel-header">
+            <h3>Employees</h3>
+            <span id="employee-current" class="settings-version">Guest</span>
+          </div>
+          <div class="employee-login-grid">
+            <label>
+              <span>Username</span>
+              <input id="employee-login-username" autocomplete="username">
+            </label>
+            <label>
+              <span>Password</span>
+              <input id="employee-login-password" type="password" autocomplete="current-password">
+            </label>
+            <button id="employee-sign-in-button" class="secondary-button compact-button" type="button">Sign In</button>
+            <button id="employee-sign-out-button" class="secondary-button compact-button" type="button">Sign Out</button>
+          </div>
+          <div class="employee-settings-grid">
+            <div class="employee-list-wrap">
+              <div class="settings-panel-header compact-header">
+                <h3>Employee List</h3>
+                <button id="new-employee-button" class="secondary-button compact-button" type="button">New Employee</button>
+              </div>
+              <div id="employee-list" class="employee-list"></div>
+            </div>
+            <form id="employee-form" class="employee-form" method="dialog">
+              <input id="employee-id" type="hidden">
+              <label>
+                <span>Name</span>
+                <input id="employee-name" autocomplete="off">
+              </label>
+              <label>
+                <span>Username</span>
+                <input id="employee-username" autocomplete="off">
+              </label>
+              <label>
+                <span>Role</span>
+                <select id="employee-role">
+                  <option value="counter">Counter</option>
+                  <option value="manager">Manager</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </label>
+              <label>
+                <span>Password</span>
+                <input id="employee-password-new" type="password" autocomplete="new-password">
+              </label>
+              <label>
+                <span>PIN</span>
+                <input id="employee-pin-new" type="password" inputmode="numeric" autocomplete="new-password">
+              </label>
+              <label>
+                <span>Location Scope</span>
+                <input id="employee-location-scope" placeholder="Main, Training, Store 2">
+              </label>
+              <fieldset class="employee-department-access">
+                <legend>Department Access</legend>
+                <label class="toggle settings-toggle">
+                  <input id="employee-department-parts" type="checkbox" checked>
+                  <span>Parts</span>
+                </label>
+                <label class="toggle settings-toggle">
+                  <input id="employee-department-service" type="checkbox" checked>
+                  <span>Service</span>
+                </label>
+              </fieldset>
+              <label>
+                <span>Admin Password</span>
+                <input id="employee-admin-password" type="password" autocomplete="current-password">
+              </label>
+              <div class="dialog-actions nested-actions">
+                <button id="delete-employee-button" class="danger-button" type="button">Delete</button>
+                <button id="reset-employee-login-button" class="secondary-button" type="button">Reset Login</button>
+                <span class="dialog-spacer"></span>
+                <button class="primary-button" type="submit">Save Employee</button>
+              </div>
+            </form>
+          </div>
+          <div class="role-permissions-card">
+            <div class="settings-panel-header compact-header">
+              <h3>Role Permissions</h3>
+              <button id="save-role-permissions-button" class="secondary-button compact-button" type="button">Save Permissions</button>
+            </div>
+            <div id="role-permission-grid" class="role-permission-grid"></div>
+          </div>
+        </section>
+
+        <section id="settings-tab-dealership" class="settings-panel settings-tab-panel" data-settings-tab-panel="dealership" role="tabpanel" hidden>
+          <div class="settings-panel-header">
+            <h3>Dealership</h3>
+          </div>
+          <form id="dealership-form" class="dealership-form" method="dialog">
+            <label>
+              <span>Dealership Name</span>
+              <input id="dealership-name" placeholder="Independence County Offroad">
+            </label>
+            <label>
+              <span>Location</span>
+              <input id="location-name" placeholder="Main counter">
+            </label>
+            <label>
+              <span>Parts Label</span>
+              <input id="parts-department-label" placeholder="Parts">
+            </label>
+            <label>
+              <span>Service Label</span>
+              <input id="service-department-label" placeholder="Service">
+            </label>
+            <div class="local-link-box">
+              <span id="local-link-output">Local link loading...</span>
+              <button id="copy-local-link-button" class="secondary-button compact-button" type="button">Copy Link</button>
+              <button id="setup-checklist-button" class="secondary-button compact-button" type="button">Setup Checklist</button>
+            </div>
+            <div class="dialog-actions nested-actions">
+              <span class="dialog-spacer"></span>
+              <button id="save-settings-button" class="primary-button" type="submit">Save Settings</button>
+            </div>
+          </form>
+        </section>
+
+        <section id="settings-tab-brands" class="settings-panel settings-tab-panel" data-settings-tab-panel="brands" role="tabpanel" hidden>
           <div class="settings-panel-header">
             <h3>Brands</h3>
             <button id="new-brand-button" class="secondary-button compact-button" type="button">New Brand</button>
@@ -190,6 +472,31 @@
                 <span>Color</span>
                 <input id="brand-accent" type="color" value="#2563eb">
               </label>
+              <label>
+                <span>Category</span>
+                <select id="brand-category">
+                  <option value="">General</option>
+                  <option value="OEM">OEM</option>
+                  <option value="Aftermarket">Aftermarket</option>
+                  <option value="Accessories">Accessories</option>
+                  <option value="Tires">Tires</option>
+                  <option value="Fluids">Fluids</option>
+                  <option value="RV Systems">RV Systems</option>
+                  <option value="Service">Service</option>
+                </select>
+              </label>
+              <label>
+                <span>Default Family</span>
+                <input id="brand-default-family">
+              </label>
+              <label>
+                <span>Default Model</span>
+                <input id="brand-default-model">
+              </label>
+              <label>
+                <span>Default Category</span>
+                <input id="brand-default-category">
+              </label>
               <label class="wide-field">
                 <span>Logo Path</span>
                 <input id="brand-logo" placeholder="assets/logo.png">
@@ -198,6 +505,10 @@
                 <span>Upload Logo</span>
                 <input id="brand-logo-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
               </label>
+              <label class="wide-field">
+                <span>Archive Note</span>
+                <input id="brand-archive-note" placeholder="Reason to save/hide this brand">
+              </label>
               <div class="dialog-actions nested-actions">
                 <button id="delete-brand-button" class="danger-button" type="button">Delete</button>
                 <span class="dialog-spacer"></span>
@@ -205,13 +516,74 @@
               </div>
             </form>
           </div>
-        </section>
 
-        <section class="settings-panel">
-          <div class="settings-panel-header">
+          <div class="settings-panel-header compact-header inline-section-header">
             <h3>Saved Brands</h3>
           </div>
           <div id="saved-brand-list" class="saved-brand-list"></div>
+
+          <div class="settings-panel-header compact-header inline-section-header">
+            <h3>Brand Order</h3>
+          </div>
+          <div class="settings-inline brand-order-controls">
+            <label>
+              <span>Brand Order</span>
+              <select id="brand-order-mode">
+                <option value="az">A-Z</option>
+                <option value="za">Z-A</option>
+                <option value="most">Most Parts</option>
+                <option value="least">Least Parts</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <button id="lock-brand-order-button" class="secondary-button compact-button" type="button">Lock Custom Order</button>
+          </div>
+        </section>
+
+        <section id="admin-tools-panel" class="settings-panel" hidden>
+          <div class="settings-panel-header">
+            <h3>Admin Tools</h3>
+            <span id="app-version" class="settings-version">Version</span>
+          </div>
+          <div class="admin-tools">
+            <label class="wide-field">
+              <span>Admin Password</span>
+              <input id="admin-password" type="password" autocomplete="current-password" placeholder="Required for restore and import">
+            </label>
+            <div class="settings-tool-grid">
+              <button id="create-backup-button" class="secondary-button compact-button" type="button">Create Backup</button>
+              <button id="export-parts-button" class="secondary-button compact-button" type="button">Export CSV</button>
+              <button id="export-parts-xlsx-button" class="secondary-button compact-button" type="button">Export XLSX</button>
+              <label class="file-button compact-button">
+                <span>Import File</span>
+                <input id="import-parts-file" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+              </label>
+              <button id="missing-report-button" class="secondary-button compact-button" type="button">Missing Numbers</button>
+              <button id="duplicate-report-button" class="secondary-button compact-button" type="button">Duplicates</button>
+              <button id="recent-report-button" class="secondary-button compact-button" type="button">Recent Changes</button>
+              <button id="review-report-button" class="secondary-button compact-button" type="button">Review Queue</button>
+              <button id="copy-activity-report-button" class="secondary-button compact-button" type="button">Copy Activity</button>
+              <button id="print-list-button" class="secondary-button compact-button" type="button">Print List</button>
+              <button id="quick-reference-button" class="secondary-button compact-button" type="button">Quick Reference</button>
+              <button id="network-setup-button" class="secondary-button compact-button" type="button">Network Setup</button>
+              <button id="migration-report-button" class="secondary-button compact-button" type="button">Migrations</button>
+              <button id="error-log-button" class="secondary-button compact-button" type="button">Error Log</button>
+              <button id="demo-database-button" class="secondary-button compact-button" type="button">Demo Database</button>
+              <button id="backup-health-button" class="secondary-button compact-button" type="button">Backup Health</button>
+              <button id="compact-database-button" class="secondary-button compact-button" type="button">Compact DB</button>
+              <button id="deployment-checklist-button" class="secondary-button compact-button" type="button">Deployment Checklist</button>
+              <button id="release-notes-button" class="secondary-button compact-button" type="button">Release Notes</button>
+            </div>
+            <div class="restore-tools">
+              <label>
+                <span>Restore Backup</span>
+                <select id="backup-select"></select>
+              </label>
+              <button id="refresh-backups-button" class="secondary-button compact-button" type="button">Refresh</button>
+              <button id="restore-backup-button" class="danger-button compact-button" type="button">Restore</button>
+            </div>
+            <div id="admin-report-output" class="admin-report-output"></div>
+          </div>
         </section>
       </div>
 
@@ -224,5 +596,7 @@
     <script src="/app.js"></script>
   </body>
 </html>
+
+
 
 

@@ -1,6 +1,8 @@
 param(
     [int]$Port = 8765,
-    [string]$HostAddress = "127.0.0.1"
+    [string]$HostAddress = "127.0.0.1",
+    [string]$DataDir = "",
+    [switch]$NoBrowser
 )
 
 $ErrorActionPreference = "Stop"
@@ -28,6 +30,18 @@ else {
     throw "Python was not found. Install Python 3.12 or run this from Codex on this PC."
 }
 
+if ($DataDir) {
+    $ResolvedDataDir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($DataDir)
+    New-Item -ItemType Directory -Force -Path $ResolvedDataDir | Out-Null
+    $env:PPWORK_DATA_DIR = $ResolvedDataDir
+    Write-Host "Using PPWork data folder: $ResolvedDataDir"
+}
+
 $Url = "http://localhost:$Port/"
-Start-Process $Url
+if (-not $NoBrowser) {
+    Start-Process $Url
+}
+else {
+    Write-Host "PPWork Web URL: $Url"
+}
 & $Python (Join-Path $AppDir "server.py") --host $HostAddress --port $Port
