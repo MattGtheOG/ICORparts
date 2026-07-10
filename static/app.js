@@ -20,6 +20,12 @@ const state = {
   savedBrands: [],
   summary: { active: 0, unassigned: 0 },
   parts: [],
+  catalogParts: [],
+  catalogLoaded: false,
+  catalogWarmPromise: null,
+  catalogGeneration: 0,
+  partsRequestId: 0,
+  optionsRequestId: 0,
   favoriteIds: new Set(),
   pinnedBrandIds: new Set(),
   copyHistory: [],
@@ -89,6 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "clear-copy-history-button",
     "part-board",
     "employee-button",
+    "login-button",
     "settings-button",
     "part-dialog",
     "part-form",
@@ -123,6 +130,12 @@ document.addEventListener("DOMContentLoaded", () => {
     "settings-dialog",
     "close-settings",
     "done-settings",
+    "login-dialog",
+    "login-form",
+    "close-login",
+    "login-current",
+    "employees-settings-tab",
+    "dealership-settings-tab",
     "department-parts-button",
     "department-service-button",
     "admin-tools-panel",
@@ -293,7 +306,13 @@ function wireEvents() {
   });
 
   els.addButton.addEventListener("click", () => openEditor());
-  els.employeeButton.addEventListener("click", openSettings);
+  els.loginButton.addEventListener("click", () => {
+    if (state.currentEmployee?.id) {
+      signOutEmployee();
+      return;
+    }
+    openLogin();
+  });
   els.settingsButton.addEventListener("click", openSettings);
   document.querySelectorAll("[data-settings-tab]").forEach((button) => {
     button.addEventListener("click", () => selectSettingsTab(button.dataset.settingsTab || "employees"));
@@ -304,9 +323,10 @@ function wireEvents() {
   els.deleteButton.addEventListener("click", deletePart);
   els.closeSettings.addEventListener("click", () => els.settingsDialog.close());
   els.doneSettings.addEventListener("click", () => els.settingsDialog.close());
+  els.closeLogin.addEventListener("click", () => els.loginDialog.close());
   els.departmentPartsButton.addEventListener("click", () => switchDepartment("parts"));
   els.departmentServiceButton.addEventListener("click", () => switchDepartment("service"));
-  els.employeeSignInButton.addEventListener("click", signInEmployee);
+  els.loginForm.addEventListener("submit", signInEmployee);
   els.employeeSignOutButton.addEventListener("click", signOutEmployee);
   els.newEmployeeButton.addEventListener("click", () => openEmployeeEditor());
   els.employeeForm.addEventListener("submit", saveEmployee);
@@ -357,7 +377,8 @@ function wireEvents() {
   document.addEventListener("keydown", handleKeyboardShortcuts);
 }
 function selectSettingsTab(tabName) {
-  const selected = ["employees", "dealership", "brands"].includes(tabName) ? tabName : "employees";
+  const availableTabs = isAdminEmployee() ? ["employees", "dealership", "brands"] : ["brands"];
+  const selected = availableTabs.includes(tabName) ? tabName : availableTabs[0];
   document.querySelectorAll("[data-settings-tab]").forEach((button) => {
     const active = button.dataset.settingsTab === selected;
     button.classList.toggle("is-active", active);
@@ -384,6 +405,19 @@ function scrollSettingsToTop() {
 
 function isAdminEmployee() {
   return state.currentEmployee?.role === "admin" && state.currentEmployee?.sessionToken;
+}
+
+function renderEmployeeAdminVisibility() {
+  const adminVisible = Boolean(isAdminEmployee());
+  if (els.employeesSettingsTab) {
+    els.employeesSettingsTab.hidden = !adminVisible;
+  }
+  if (els.dealershipSettingsTab) {
+    els.dealershipSettingsTab.hidden = !adminVisible;
+  }
+  if (!adminVisible && els.settingsDialog?.open) {
+    selectSettingsTab("brands");
+  }
 }
 
 function normalizeRolePermissions(value) {
@@ -670,11 +704,12 @@ function deleteSelectedSearchPreset() {
 }
 
 async function refreshAll() {
+  invalidateCatalogCache();
   await loadFavorites();
   await loadSummary();
   await loadBrands();
-  await loadOptions();
-  await loadParts();
+  await Promise.all([loadOptions(), loadParts()]);
+  void warmCatalogCache();
 }
 
 async function loadSummary() {
@@ -710,11 +745,24 @@ async function loadBrands() {
 }
 
 async function loadOptions() {
+  const requestId = ++state.optionsRequestId;
+  if (state.catalogLoaded) {
+    applyFilterOptions(catalogOptionsForBrand(state.filters.brand));
+    return;
+  }
+
   const query = new URLSearchParams();
   if (state.filters.brand && state.filters.brand !== FAVORITES_FILTER) {
     query.set("brand", state.filters.brand);
   }
   const options = await api(`/api/options?${query.toString()}`);
+  if (requestId !== state.optionsRequestId) {
+    return;
+  }
+  applyFilterOptions(options);
+}
+
+function applyFilterOptions(options) {
   fillSelect(els.familyFilter, "All families", options.families, state.filters.family);
   fillSelect(els.modelFilter, "All models", options.models, state.filters.model);
   fillSelect(els.categoryFilter, "All categories", options.categories, state.filters.category);
@@ -724,6 +772,14 @@ async function loadOptions() {
 }
 
 async function loadParts() {
+  const requestId = ++state.partsRequestId;
+  if (state.catalogLoaded && hasOnlyBrandServerFilter()) {
+    state.parts = catalogPartsForBrand(state.filters.brand);
+    renderParts();
+    renderQuickPanels();
+    return;
+  }
+
   const query = new URLSearchParams();
   Object.entries(state.filters).forEach(([key, value]) => {
     if (!value || key === "view" || (key === "brand" && value === FAVORITES_FILTER)) {
@@ -732,9 +788,83 @@ async function loadParts() {
     query.set(key, value);
   });
 
-  state.parts = await api(`/api/parts?${query.toString()}`);
+  const parts = await api(`/api/parts?${query.toString()}`);
+  if (requestId !== state.partsRequestId) {
+    return;
+  }
+  state.parts = parts;
+  if (isFullCatalogRequest()) {
+    state.catalogParts = parts;
+    state.catalogLoaded = true;
+  }
   renderParts();
   renderQuickPanels();
+}
+
+const SERVER_FILTER_KEYS = ["brand", "family", "model", "category", "year", "make", "fitmentModel", "unitType", "q"];
+
+function hasOnlyBrandServerFilter() {
+  return SERVER_FILTER_KEYS.every((key) => key === "brand" || !state.filters[key]);
+}
+
+function isFullCatalogRequest() {
+  return SERVER_FILTER_KEYS.every((key) => {
+    if (key === "brand") {
+      return !state.filters.brand || state.filters.brand === FAVORITES_FILTER;
+    }
+    return !state.filters[key];
+  });
+}
+
+function catalogPartsForBrand(brand) {
+  if (!brand || brand === FAVORITES_FILTER) {
+    return state.catalogParts;
+  }
+  return state.catalogParts.filter((part) => part.brand === brand);
+}
+
+function catalogOptionsForBrand(brand) {
+  const parts = catalogPartsForBrand(brand);
+  const values = (key) => [...new Set(parts.map((part) => part[key]).filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: "base" }));
+  return {
+    families: values("family"),
+    models: values("model"),
+    categories: values("category"),
+    makes: values("make"),
+    fitmentModels: values("fitmentModel"),
+    unitTypes: values("unitType"),
+  };
+}
+
+function invalidateCatalogCache() {
+  state.catalogGeneration += 1;
+  state.catalogParts = [];
+  state.catalogLoaded = false;
+  state.catalogWarmPromise = null;
+}
+
+async function warmCatalogCache() {
+  if (state.catalogLoaded || state.catalogWarmPromise) {
+    return state.catalogWarmPromise;
+  }
+  const generation = state.catalogGeneration;
+  const department = state.department;
+  const request = api("/api/parts");
+  state.catalogWarmPromise = request;
+  try {
+    const parts = await request;
+    if (generation === state.catalogGeneration && department === state.department) {
+      state.catalogParts = parts;
+      state.catalogLoaded = true;
+    }
+  } catch (error) {
+    console.warn("CounterFlow could not warm the brand cache.", error);
+  } finally {
+    if (state.catalogWarmPromise === request) {
+      state.catalogWarmPromise = null;
+    }
+  }
 }
 
 function renderBrands() {
@@ -1123,13 +1253,13 @@ async function selectBrand(name) {
   state.filters.family = "";
   state.filters.model = "";
   state.filters.category = "";
-  await loadOptions();
   renderBrands();
-  await loadParts();
+  await Promise.all([loadOptions(), loadParts()]);
 }
 
 function openSettings() {
   renderDepartmentControls();
+  renderEmployeeAdminVisibility();
   renderAdminToolsVisibility();
   renderBrandSettings();
   renderSavedBrandSettings();
@@ -1143,9 +1273,19 @@ function openSettings() {
   } else if (!state.brands.length) {
     openBrandEditor(null, { focus: false });
   }
-  selectSettingsTab("employees");
+  selectSettingsTab(isAdminEmployee() ? "employees" : "brands");
   els.settingsDialog.showModal();
   scrollSettingsToTop();
+}
+
+function openLogin() {
+  renderEmployeeState();
+  els.loginDialog.showModal();
+  if (state.currentEmployee?.id) {
+    els.employeeSignOutButton.focus();
+  } else {
+    els.employeeLoginUsername.focus();
+  }
 }
 
 function openBrandEditor(brand = null, options = {}) {
@@ -2174,10 +2314,26 @@ function renderEmployeeState() {
   if (els.employeeButton) {
     els.employeeButton.textContent = employee ? `Employee: ${employee.name}` : "Employee: Guest";
   }
+  if (els.loginButton) {
+    els.loginButton.textContent = employee ? "Logout" : "Login";
+  }
   if (els.employeeCurrent) {
     const access = employee?.allowedDepartments?.length ? ` - ${employee.allowedDepartments.map(departmentName).join("/")}` : "";
     els.employeeCurrent.textContent = employee ? `${employee.name} - ${employeeRoleLabel(employee.role)}${access}` : "Guest";
   }
+  if (els.loginCurrent) {
+    els.loginCurrent.textContent = employee ? `${employee.name} - ${employeeRoleLabel(employee.role)}` : "Not signed in";
+  }
+  if (els.employeeSignInButton) {
+    els.employeeSignInButton.disabled = Boolean(employee);
+  }
+  if (els.employeeLoginUsername) {
+    els.employeeLoginUsername.disabled = Boolean(employee);
+  }
+  if (els.employeeLoginPassword) {
+    els.employeeLoginPassword.disabled = Boolean(employee);
+  }
+  renderEmployeeAdminVisibility();
   renderAdminToolsVisibility();
 }
 
@@ -2232,7 +2388,8 @@ function openEmployeeEditor(employee = null) {
   }
 }
 
-async function signInEmployee() {
+async function signInEmployee(event) {
+  event?.preventDefault();
   const username = els.employeeLoginUsername.value.trim();
   const password = els.employeeLoginPassword.value;
   if (!username) {
@@ -2258,6 +2415,7 @@ async function signInEmployee() {
     renderParts();
     renderQuickPanels();
     resetInactivityTimer();
+    els.loginDialog.close();
     showFeedback(`${employee.name} signed in.`, "ok");
   } catch (error) {
     showFeedback(error.message, "warn");
@@ -2440,9 +2598,9 @@ function renderAppSettings() {
     : DEFAULT_PERMISSION_ACTIONS;
   state.rolePermissions = normalizeRolePermissions(settings.rolePermissions);
   renderRolePermissions();
-  const title = settings.dealershipName || "Independence County Offroad";
-  els.appTitle.textContent = title;
-  document.title = title;
+  const dealership = settings.dealershipName || "Independence County Offroad";
+  els.appTitle.textContent = "CounterFlow";
+  document.title = `CounterFlow | ${dealership}`;
   renderDepartmentControls();
 }
 
@@ -2750,7 +2908,7 @@ async function compactDatabase() {
 }
 
 async function downloadDemoDatabase() {
-  await exportPartsFile("/api/demo-database", "ppwork-demo-database.zip", "Demo database downloaded.");
+  await exportPartsFile("/api/demo-database", "counterflow-demo-database.zip", "Demo database downloaded.");
 }
 
 function downloadBlob(blob, fileName) {
@@ -2912,7 +3070,8 @@ function enforceCurrentDepartmentAccess() {
 function renderDepartmentControls() {
   const isParts = state.department === "parts";
   if (els.departmentEyebrow) {
-    els.departmentEyebrow.textContent = `${departmentLabel()} Department`;
+    const dealership = (state.appSettings || {}).dealershipName || "Independence County Offroad";
+    els.departmentEyebrow.textContent = `${dealership} | ${departmentLabel()} Department`;
   }
   if (els.departmentPartsButton) {
     els.departmentPartsButton.textContent = (state.appSettings || {}).partsDepartmentLabel || "Parts";
@@ -3137,9 +3296,3 @@ function debounce(fn, wait) {
 function toCamel(id) {
   return id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
 }
-
-
-
-
-
-

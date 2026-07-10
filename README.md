@@ -1,13 +1,27 @@
-# PPWork Web
+# CounterFlow
 
-This is a simple web replacement for the original PPWork WinForms app. It keeps the same core job: pick a brand/model/item, click the part, and the part number is copied for pasting into the cashier application.
+CounterFlow is a shared parts and service counter reference board for powersports dealerships. It keeps the original application's core job: pick a brand, model, or item, click the part, and paste the copied number into the dealership's cashier, CRM, DMS, or repair-order application.
+
+## Showcase Website
+
+Open `website/index.html` to view the standalone CounterFlow product website. It presents the dealership workflow, current features, benefits, product screenshots, and the boundary between CounterFlow and the dealership's CRM, DMS, POS, and OEM catalogs. The website is responsive and does not require the CounterFlow server to display.
 
 ## Run It
 
-Open `Start-PPWorkWeb.bat` from this folder. It starts the local web server and opens:
+Open `Start-CounterFlow.bat` from this folder. It starts the local web server and opens:
 
 ```text
 http://localhost:8765/
+```
+
+## Fresh Empty Installation
+
+Close CounterFlow, then open `Fresh-Install-CounterFlow.bat` to remove the current Parts and Service data and start with empty databases. The reset requires typing `FRESH START` and automatically saves both existing databases under `backups/before-fresh-install-<timestamp>` before removing them. The next start creates clean database schemas and opens the first-admin setup without reloading the starter catalog.
+
+For a shared data folder, pass the same location used by the normal launcher:
+
+```powershell
+.\Fresh-Install-CounterFlow.bat -DataDir "\\SERVER\CounterFlowData"
 ```
 
 The app uses `parts.db` for the Parts department and `service.db` for the Service department. `parts.db` is created from `seed-data.json` when missing; `service.db` starts empty so Service can add only the brands and part records they need. By default, databases, backups, and logs live in this folder. Use the launcher `-DataDir` option to keep them in a shared folder instead.
@@ -32,7 +46,7 @@ Signed-in employees are automatically signed out after 30 minutes of inactivity 
 
 Open `Settings` to choose the active department and theme from the top of the menu. The lower part of Settings uses tabs for `Employees`, `Dealership`, and `Brands`.
 
-The `Employees` tab supports username/password sign-in, employee roles, location scope, Parts/Service department access, and a Role Permissions matrix. Admins can reset an employee login by clearing the selected employee's password and PIN. On a fresh live database, the app opens a first-run setup window to create the first admin employee. Admin Tools appear at the bottom of Settings for signed-in employees who have at least one admin-tool permission.
+Use the `Login` button beside Settings to open the dedicated Employee Login window. After sign-in, that button changes to `Logout`. The `Employees` and `Dealership` settings tabs are only visible to signed-in admins; regular employees use the Brands tab and the always-visible Department and Theme controls. Employees settings supports employee roles, location scope, Parts/Service department access, and a Role Permissions matrix. Admins can reset an employee login by clearing the selected employee's password and PIN. On a fresh live database, the app opens a first-run setup window to create the first admin employee. Admin Tools appear at the bottom of Settings for signed-in employees who have at least one admin-tool permission.
 
 The `Dealership` tab controls the dealership name, location name, department labels, local network link, and setup checklist.
 
@@ -54,14 +68,14 @@ Those demo accounts are created only inside the downloadable demo databases. The
 
 ## Moving To Another PC
 
-Copy the full `PPWorkWeb` folder. That includes the database and brand images. The launcher can use the bundled Codex Python on this PC, or a normal Python 3 install on another PC.
+Copy the full CounterFlow application folder. The current folder name can remain `PPWorkWeb` for compatibility. It includes the database and brand images, and the launcher can use the bundled Codex Python on this PC or a normal Python 3 install on another PC.
 
 ## Network Use
 
 For one shared counter computer, run the app normally. For other computers on the same network, run this on the host computer:
 
 ```powershell
-.\Start-PPWorkWeb.ps1 -HostAddress 0.0.0.0 -Port 8765
+.\Start-CounterFlow.ps1 -HostAddress 0.0.0.0 -Port 8765
 ```
 
 Then open the host computer's local network address with port `8765`.
@@ -69,19 +83,19 @@ Then open the host computer's local network address with port `8765`.
 For a central data folder, create a shared folder on the host or server and start the app with `-DataDir`:
 
 ```powershell
-.\Start-PPWorkWeb.ps1 -HostAddress 0.0.0.0 -Port 8765 -DataDir "\\SERVER\PPWorkData"
+.\Start-CounterFlow.ps1 -HostAddress 0.0.0.0 -Port 8765 -DataDir "\\SERVER\CounterFlowData"
 ```
 
 Every workstation that runs its own copy of the app should use the same `-DataDir` value so Parts, Service, backups, and logs stay together. For the simplest four-person counter setup, use one host computer and have the other employees open the host URL in their browser.
 ## Automatic Start On Windows
 
-Use the startup task installer when this PC should start PPWork Web after the Windows user signs in:
+Use the startup task installer when this PC should start CounterFlow after the Windows user signs in:
 
 ```powershell
-.\Install-PPWorkWebStartupTask.ps1 -HostAddress 0.0.0.0 -Port 8765 -DataDir "\\SERVER\PPWorkData" -RunNow
+.\Install-PPWorkWebStartupTask.ps1 -HostAddress 0.0.0.0 -Port 8765 -DataDir "\\SERVER\CounterFlowData" -RunNow
 ```
 
-Leave off `-DataDir` if the databases should stay in this app folder. The task runs `Start-PPWorkWeb.ps1` with `-NoBrowser`, so it starts the server quietly instead of opening a browser window.
+Leave off `-DataDir` if the databases should stay in this app folder. The task starts CounterFlow quietly instead of opening a browser window.
 
 To remove the startup task later:
 
@@ -91,14 +105,23 @@ To remove the startup task later:
 
 ## Updating The App
 
-Use the update helper when a newer PPWorkWeb folder or ZIP is ready to install:
+Use the update helper when a newer CounterFlow folder or ZIP is ready to install:
 
 ```powershell
-.\Update-PPWorkWeb.ps1 -PackagePath "C:\Path\To\PPWorkWeb.zip" -Preview
-.\Update-PPWorkWeb.ps1 -PackagePath "C:\Path\To\PPWorkWeb.zip"
+.\Update-PPWorkWeb.ps1 -PackagePath "C:\Path\To\CounterFlow.zip" -Preview
+.\Update-PPWorkWeb.ps1 -PackagePath "C:\Path\To\CounterFlow.zip"
 ```
 
-The updater saves an app backup under `backups`, copies the new app files, and preserves `parts.db`, `service.db`, `backups`, and `logs`. Restart PPWork Web after updating.
+The updater saves an app backup under `backups`, copies the new app files, and preserves `parts.db`, `service.db`, `backups`, and `logs`. Restart CounterFlow after updating.
+
+Use the GitHub updater after this app is published to `MattGtheOG/ICORparts`:
+
+```powershell
+.\Update-CounterFlowFromGitHub.ps1 -Preview
+.\Update-CounterFlowFromGitHub.ps1
+```
+
+Or open `Update-CounterFlowFromGitHub.bat`. The GitHub updater downloads the `main` branch, compares the app version, calls the local updater, saves an app backup, and preserves dealership databases, backups, logs, and locally uploaded brand-logo files. Restart CounterFlow after updating.
 
 ## Cloud Deployment
 
@@ -112,8 +135,8 @@ The app now includes basic cloud deployment files:
 For a local Docker test:
 
 ```powershell
-docker build -t ppwork-web .
-docker run -p 8765:8765 -v ppwork-data:/data ppwork-web
+docker build -t counterflow .
+docker run -p 8765:8765 -v counterflow-data:/data counterflow
 ```
 
-For hosted use, set `PPWORK_DATA_DIR` to a persistent storage path or mounted volume. Keep the app behind dealership-only access such as a private network, VPN, or protected hosting login before putting real dealership data in the cloud.
+For hosted use, set the compatibility variable `PPWORK_DATA_DIR` to a persistent storage path or mounted volume. Keep CounterFlow behind dealership-only access such as a private network, VPN, or protected hosting login before putting real dealership data in the cloud.

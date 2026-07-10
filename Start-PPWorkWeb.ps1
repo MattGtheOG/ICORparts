@@ -34,7 +34,7 @@ if ($DataDir) {
     $ResolvedDataDir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($DataDir)
     New-Item -ItemType Directory -Force -Path $ResolvedDataDir | Out-Null
     $env:PPWORK_DATA_DIR = $ResolvedDataDir
-    Write-Host "Using PPWork data folder: $ResolvedDataDir"
+    Write-Host "Using CounterFlow data folder: $ResolvedDataDir"
 }
 
 $Url = "http://localhost:$Port/"
@@ -42,6 +42,6 @@ if (-not $NoBrowser) {
     Start-Process $Url
 }
 else {
-    Write-Host "PPWork Web URL: $Url"
+    Write-Host "CounterFlow URL: $Url"
 }
 & $Python (Join-Path $AppDir "server.py") --host $HostAddress --port $Port

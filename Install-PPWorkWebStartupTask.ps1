@@ -2,7 +2,7 @@ param(
     [int]$Port = 8765,
     [string]$HostAddress = "0.0.0.0",
     [string]$DataDir = "",
-    [string]$TaskName = "PPWork Web",
+    [string]$TaskName = "CounterFlow",
     [switch]$RunNow
 )
 
@@ -32,7 +32,7 @@ if ($DataDir) {
 $Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument ($Arguments -join " ")
 $Trigger = New-ScheduledTaskTrigger -AtLogOn
 $Principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive
-$Description = "Starts PPWork Web when this Windows user signs in."
+$Description = "Starts CounterFlow when this Windows user signs in."
 
 Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Description $Description -Force | Out-Null
 

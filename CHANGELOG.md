@@ -1,6 +1,117 @@
-# Changelog
+# CounterFlow Changelog
 
-All notable changes for the Independence County Offroad parts board are recorded here.
+All notable changes for CounterFlow are recorded here.
+
+## 2026-07-10 - Version 0.14.3
+
+### Added
+
+- Added `Update-CounterFlowFromGitHub.bat` and `Update-CounterFlowFromGitHub.ps1` so CounterFlow can update itself from `MattGtheOG/ICORparts`.
+- Added a root `.gitignore` for public source uploads that excludes live databases, backups, logs, caches, and generated website build folders.
+
+### Changed
+
+- Documented the GitHub update workflow in the README.
+- Updated the app version to `0.14.3`.
+
+## 2026-07-10 - Version 0.14.2
+
+### Performance
+
+- Brand buttons now highlight immediately instead of waiting for filter data to load.
+- Brand filter options and part results now update in parallel when a database request is needed.
+- Normal brand switches reuse the complete catalog already loaded by the main screen, avoiding repeat database requests.
+- Added stale-request protection so rapid brand and filter changes cannot display an older response.
+- Catalog data is invalidated and safely warmed again after edits, imports, restores, or department changes.
+
+### Changed
+
+- Updated the app version to `0.14.2`.
+
+## 2026-07-10 - Version 0.14.1
+
+### Added
+
+- Added `Fresh-Install-CounterFlow.bat` for starting a fully blank installation.
+- Added a typed `FRESH START` confirmation and automatic timestamped database backup before reset.
+- Added shared data-folder support to the fresh-install reset tool.
+- Added a persistent empty-install marker so a blank Parts database does not reload the starter catalog.
+
+### Changed
+
+- Updated the app version to `0.14.1`.
+
+### Safety
+
+- The reset refuses to run while CounterFlow is listening on the selected port.
+- Only `parts.db`, `service.db`, and their SQLite sidecar files are removed; the backup, application files, brand images, logs, and seed file are preserved.
+
+## 2026-07-10 - Version 0.14.0
+
+### Added
+
+- Added a generated CounterFlow logo combining a parts/service counter, gear, clock, and forward arrow.
+- Added the new logo to the application header, browser icon, website header, website hero, and footer.
+- Added `Start-CounterFlow.bat` and `Start-CounterFlow.ps1` launchers while retaining legacy launcher compatibility.
+
+### Changed
+
+- Renamed the application and showcase website from PPWork to CounterFlow.
+- Kept the dealership name visible as the location identity beneath the CounterFlow product brand.
+- Updated generated setup pages, demo downloads, startup messages, documentation, and product requirements with the new name.
+- Preserved existing internal storage keys, API headers, environment variables, databases, and folder compatibility so the rebrand does not reset dealership data or employee preferences.
+- Updated the app version to `0.14.0`.
+
+### Verified
+
+- Confirmed Python and JavaScript syntax checks pass.
+- Confirmed the full application smoke test passes after the rebrand.
+- Confirmed the application and website render without missing images, browser errors, or horizontal overflow on desktop and mobile.
+
+## 2026-07-10 - Showcase Website
+
+### Added
+
+- Added a standalone responsive product website under `website`.
+- Added dealership-focused workflow, benefit, feature, CRM/DMS positioning, security, backup, and deployment sections.
+- Added an interactive real-world scenario selector for Parts, Sales, Service, and management workflows.
+- Added a current product screenshot and existing dealership brand assets.
+
+### Verified
+
+- Confirmed desktop and mobile layouts have no horizontal overflow or missing images.
+- Confirmed the mobile navigation and dealership scenario interactions run without browser errors.
+
+## 2026-07-10 - Version 0.13.2
+
+### Changed
+
+- Limited the Dealership settings tab to signed-in admins, matching the Employees tab.
+- Regular employees now open Settings on the Brands tab.
+- Changed the top-bar Login button to Logout while an employee is signed in.
+- Updated the app version to `0.13.2`.
+
+### Verified
+
+- Confirmed the JavaScript syntax check and full smoke test pass.
+
+## 2026-07-10 - Version 0.13.1
+
+### Added
+
+- Added a dedicated `Login` button beside Settings with a separate Employee Login window.
+
+### Changed
+
+- Limited the Employees settings tab and employee management controls to signed-in admins.
+- Changed the employee name in the top bar to a status label instead of a Settings shortcut.
+- Non-admin users now open Settings on the Dealership tab.
+- Updated the app version to `0.13.1`.
+
+### Verified
+
+- Confirmed Python and JavaScript syntax checks pass.
+- Confirmed the full smoke test passes against the running local app.
 
 ## 2026-07-07 - Version 0.13.0
 
@@ -325,8 +436,3 @@ All notable changes for the Independence County Offroad parts board are recorded
 - Confirmed department switching loaded separate databases.
 - Confirmed wrong admin password was rejected for permanent saved-brand removal.
 - Confirmed the configured admin password allowed permanent saved-brand removal from the app while leaving database backup rows available.
-
-
-
-
-

@@ -1,0 +1,24 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #101827;
+}
+
+.site-shell,
+.showcase-frame {
+  width: 100%;
+  height: 100%;
+}
+
+.showcase-frame {
+  display: block;
+  border: 0;
+  background: #f5f6f7;
+}

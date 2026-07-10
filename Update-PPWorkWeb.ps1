@@ -18,7 +18,7 @@ $TempDir = $null
 $SourceDir = $ResolvedPackage
 if (-not (Test-Path -LiteralPath $ResolvedPackage -PathType Container)) {
     if ([IO.Path]::GetExtension($ResolvedPackage).ToLowerInvariant() -ne ".zip") {
-        throw "PackagePath must be a PPWorkWeb folder or .zip file."
+        throw "PackagePath must be a CounterFlow application folder or .zip file."
     }
     $TempDir = Join-Path ([IO.Path]::GetTempPath()) ("PPWorkWebUpdate-" + [Guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
@@ -31,7 +31,7 @@ if (-not (Test-Path -LiteralPath $ResolvedPackage -PathType Container)) {
 }
 
 if (-not (Test-Path -LiteralPath (Join-Path $SourceDir "server.py"))) {
-    throw "The update source does not look like a PPWorkWeb app folder."
+    throw "The update source does not look like a CounterFlow app folder."
 }
 if (-not (Test-Path -LiteralPath (Join-Path $SourceDir "static"))) {
     throw "The update source is missing the static folder."
@@ -68,4 +68,4 @@ if ($TempDir) {
     Remove-Item -LiteralPath $TempDir -Recurse -Force
 }
 
-Write-Host "Update copied. Restart PPWork Web to use the new version."
+Write-Host "Update copied. Restart CounterFlow to use the new version."

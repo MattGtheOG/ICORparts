@@ -52,7 +52,7 @@ ASSETS_DIR = STATIC_DIR / "assets"
 BACKUP_DIR = DATA_DIR / "backups"
 LOG_DIR = DATA_DIR / "logs"
 LOG_FILE = LOG_DIR / "app.log"
-APP_VERSION = "0.13.0"
+APP_VERSION = "0.14.3"
 SCHEMA_VERSION = "2026-07-07-0.13.0"
 DEFAULT_DEPARTMENT = "parts"
 DEPARTMENTS = {
@@ -61,6 +61,7 @@ DEPARTMENTS = {
 }
 ADMIN_PASSWORD_HASH = "1fe8359332f00ab7dde21a97ba3603eb06b8f68266c0a7e9e7582f0efc039dd0"
 SEED_PATH = BASE_DIR / "seed-data.json"
+EMPTY_INSTALL_MARKER = DATA_DIR / ".counterflow-empty-install"
 MAX_JSON_BYTES = 8 * 1024 * 1024
 MAX_LOGO_BYTES = 4 * 1024 * 1024
 MAX_LOGO_DIMENSION = 512
@@ -344,7 +345,7 @@ def init_db() -> None:
             brand_count = db.execute("SELECT COUNT(*) FROM brands").fetchone()[0]
             part_count = db.execute("SELECT COUNT(*) FROM parts").fetchone()[0]
 
-            if config["seed"] and brand_count == 0 and part_count == 0 and SEED_PATH.exists():
+            if config["seed"] and brand_count == 0 and part_count == 0 and SEED_PATH.exists() and not EMPTY_INSTALL_MARKER.exists():
                 seed_database(db)
 
 
@@ -1209,7 +1210,7 @@ def create_demo_database_archive() -> bytes:
         build_demo_database(service_path, "service")
         readme = """Demo Powersports Database
 
-This ZIP contains starter SQLite databases for trying PPWorkWeb without changing live dealership data.
+This ZIP contains starter SQLite databases for trying CounterFlow without changing live dealership data.
 
 Files:
 - demo-parts.db: sample powersports brands and parts
@@ -1229,7 +1230,7 @@ Use these as examples or keep them as training references.
 
 
 class PartsHandler(BaseHTTPRequestHandler):
-    server_version = "PPWorkWeb/1.0"
+    server_version = "CounterFlow/1.0"
     department = DEFAULT_DEPARTMENT
 
     def db_connection(self) -> sqlite3.Connection:
@@ -2213,7 +2214,7 @@ class PartsHandler(BaseHTTPRequestHandler):
         self.send_bytes(
             create_demo_database_archive(),
             "application/zip",
-            headers={"Content-Disposition": f'attachment; filename="ppwork-demo-database-{stamp}.zip"'},
+            headers={"Content-Disposition": f'attachment; filename="counterflow-demo-database-{stamp}.zip"'},
         )
 
     def create_backup_endpoint(self) -> None:
@@ -2881,7 +2882,7 @@ Location: {settings.get('locationName') or 'Main'}
         link_rows = "".join(f"<li><code>{link}</code></li>" for link in sorted(set(links)))
         document = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><title>{dealership} Network Setup</title>
 <style>body{{font-family:Arial,sans-serif;margin:24px;color:#111827;line-height:1.45}}h1{{margin-bottom:4px}}code{{background:#f3f4f6;padding:2px 5px;border-radius:4px}}li{{margin:7px 0}}@media print{{body{{margin:10mm}}button{{display:none}}}}</style>
-</head><body><button onclick="window.print()">Print</button><h1>{dealership} Network Setup</h1><p>Use these steps for counter computers that open this app from the main computer.</p><h2>Main Computer</h2><ol><li>Start PPWorkWeb on the main counter computer.</li><li>Leave the app window running during business hours.</li><li>Use a wired connection or reliable dealership Wi-Fi where possible.</li></ol><h2>Counter Computers</h2><ol><li>Open one of these links in the browser:</li></ol><ul>{link_rows}</ul><h2>Checklist</h2><ol><li>Confirm Parts and Service both open.</li><li>Sign in each employee, then choose their theme and density.</li><li>Copy one known part number and paste it into the CRM test screen.</li><li>Create a manual backup after setup is complete.</li></ol></body></html>"""
+</head><body><button onclick="window.print()">Print</button><h1>{dealership} CounterFlow Network Setup</h1><p>Use these steps for counter computers that open this app from the main computer.</p><h2>Main Computer</h2><ol><li>Start CounterFlow on the main counter computer.</li><li>Leave the app window running during business hours.</li><li>Use a wired connection or reliable dealership Wi-Fi where possible.</li></ol><h2>Counter Computers</h2><ol><li>Open one of these links in the browser:</li></ol><ul>{link_rows}</ul><h2>Checklist</h2><ol><li>Confirm Parts and Service both open.</li><li>Sign in each employee, then choose their theme and density.</li><li>Copy one known part number and paste it into the CRM test screen.</li><li>Create a manual backup after setup is complete.</li></ol></body></html>"""
         self.send_text(document, "text/html; charset=utf-8")
 
     def get_deployment_checklist(self) -> None:
@@ -2895,7 +2896,7 @@ Location: {settings.get('locationName') or 'Main'}
         service_db = html.escape(str(db_path_for_department("service")))
         document = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><title>{dealership} Deployment Checklist</title>
 <style>body{{font-family:Arial,sans-serif;margin:24px;color:#111827;line-height:1.45}}h1{{margin-bottom:4px}}h2{{margin-top:22px}}code{{background:#f3f4f6;padding:2px 5px;border-radius:4px}}li{{margin:7px 0}}table{{border-collapse:collapse;width:100%;font-size:13px}}th,td{{border:1px solid #d1d5db;padding:8px;text-align:left;vertical-align:top}}th{{background:#f3f4f6}}@media print{{body{{margin:10mm}}button{{display:none}}}}</style>
-</head><body><button onclick="window.print()">Print</button><h1>{dealership} Deployment Checklist</h1><p>Use this before putting PPWorkWeb on a shared counter computer or moving it to a server.</p><h2>Current Paths</h2><table><tbody><tr><th>App Folder</th><td><code>{app_dir}</code></td></tr><tr><th>Data Folder</th><td><code>{data_dir}</code></td></tr><tr><th>Parts Database</th><td><code>{parts_db}</code></td></tr><tr><th>Service Database</th><td><code>{service_db}</code></td></tr><tr><th>Backups</th><td><code>{backup_dir}</code></td></tr><tr><th>Log File</th><td><code>{log_file}</code></td></tr></tbody></table><h2>Shared Folder Setup</h2><ol><li>Place the app folder on the computer that will stay on during counter hours.</li><li>Confirm the data folder is backed up by OneDrive, Windows backup, or a dealership backup tool.</li><li>Start the app and create a manual backup from Settings.</li><li>Open the Network Setup sheet and test the link on each counter workstation.</li></ol><h2>Single Host Network Setup</h2><ol><li>Use the most reliable parts-counter computer or a small office server as the host.</li><li>Keep the host awake during business hours.</li><li>Allow the app port through Windows Firewall only for the dealership network.</li><li>Create employee logins before handing out the network link.</li></ol><h2>Cloud Hosted Setup</h2><ol><li>Move the data folder to persistent storage, not temporary server storage.</li><li>Use HTTPS and a real admin password before exposing the app outside the local network.</li><li>Schedule daily database backups and test a restore before launch.</li><li>Restrict employee access to dealership users only.</li></ol><h2>Go Live Checks</h2><ol><li>Run Backup Health and confirm each department has a current backup.</li><li>Export the Parts catalog to Excel and store a copy with launch records.</li><li>Sign in as a counter employee and copy one known part number into the CRM test screen.</li><li>Confirm each workstation has its own theme and favorites behavior.</li></ol></body></html>"""
+</head><body><button onclick="window.print()">Print</button><h1>{dealership} CounterFlow Deployment Checklist</h1><p>Use this before putting CounterFlow on a shared counter computer or moving it to a server.</p><h2>Current Paths</h2><table><tbody><tr><th>App Folder</th><td><code>{app_dir}</code></td></tr><tr><th>Data Folder</th><td><code>{data_dir}</code></td></tr><tr><th>Parts Database</th><td><code>{parts_db}</code></td></tr><tr><th>Service Database</th><td><code>{service_db}</code></td></tr><tr><th>Backups</th><td><code>{backup_dir}</code></td></tr><tr><th>Log File</th><td><code>{log_file}</code></td></tr></tbody></table><h2>Shared Folder Setup</h2><ol><li>Place the app folder on the computer that will stay on during counter hours.</li><li>Confirm the data folder is backed up by OneDrive, Windows backup, or a dealership backup tool.</li><li>Start the app and create a manual backup from Settings.</li><li>Open the Network Setup sheet and test the link on each counter workstation.</li></ol><h2>Single Host Network Setup</h2><ol><li>Use the most reliable parts-counter computer or a small office server as the host.</li><li>Keep the host awake during business hours.</li><li>Allow the app port through Windows Firewall only for the dealership network.</li><li>Create employee logins before handing out the network link.</li></ol><h2>Cloud Hosted Setup</h2><ol><li>Move the data folder to persistent storage, not temporary server storage.</li><li>Use HTTPS and a real admin password before exposing the app outside the local network.</li><li>Schedule daily database backups and test a restore before launch.</li><li>Restrict employee access to dealership users only.</li></ol><h2>Go Live Checks</h2><ol><li>Run Backup Health and confirm each department has a current backup.</li><li>Export the Parts catalog to Excel and store a copy with launch records.</li><li>Sign in as a counter employee and copy one known part number into the CRM test screen.</li><li>Confirm each workstation has its own theme and favorites behavior.</li></ol></body></html>"""
         self.send_text(document, "text/html; charset=utf-8")
 
     def get_service_resources(self, parsed) -> None:
@@ -3228,7 +3229,7 @@ def env_int(name: str, fallback: int) -> int:
 def main() -> None:
     default_host = os.environ.get("PPWORK_HOST", "127.0.0.1")
     default_port = env_int("PORT", env_int("PPWORK_PORT", 8765))
-    parser = argparse.ArgumentParser(description="Run the PPWork web parts board.")
+    parser = argparse.ArgumentParser(description="Run the CounterFlow parts and service counter board.")
     parser.add_argument("--host", default=default_host)
     parser.add_argument("--port", default=default_port, type=int)
     args = parser.parse_args()
@@ -3236,7 +3237,7 @@ def main() -> None:
     init_db()
     create_daily_startup_backups()
     server = ThreadingHTTPServer((args.host, args.port), PartsHandler)
-    print(f"PPWork Web is running at http://{args.host}:{args.port}")
+    print(f"CounterFlow is running at http://{args.host}:{args.port}")
     print(f"Data folder: {DATA_DIR}")
     for value in DEPARTMENTS.values():
         print(f"{value['label']} database: {value['db']}")
@@ -3245,8 +3246,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
-
-
-

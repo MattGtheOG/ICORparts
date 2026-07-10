@@ -1,6 +1,6 @@
 # Feature Ideas To Review
 
-The original feature checklist has been completed through version `0.11.0`. This powersports-focused follow-up list is now being worked down in version `0.13.0`.
+The original feature checklist has been completed through version `0.11.0`. This powersports-focused follow-up list is now being worked down in CounterFlow version `0.14.0`.
 
 ## Counter Speed
 

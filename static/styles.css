@@ -235,6 +235,20 @@ button {
   border-bottom: 4px solid var(--topbar-line);
 }
 
+.app-identity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-logo {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  object-fit: contain;
+}
+
 .eyebrow {
   margin: 0 0 4px;
   color: #cbd5e1;
@@ -291,6 +305,16 @@ h1 {
   background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
   font-weight: 750;
+}
+
+.employee-status {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  color: #f8fafc;
+  font-weight: 750;
+  white-space: nowrap;
 }
 
 .workspace {
@@ -827,6 +851,15 @@ dialog {
 
 dialog::backdrop {
   background: rgba(15, 23, 42, 0.42);
+}
+
+.login-dialog {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.login-dialog .employee-login-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+  padding: 16px;
 }
 
 .dialog-header {
@@ -1669,6 +1702,12 @@ textarea {
     flex-direction: column;
   }
 
+  .app-logo {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+
   .topbar-actions,
   .status-panel {
     justify-content: flex-start;
@@ -1718,7 +1757,5 @@ textarea {
     flex: 1 1 120px;
   }
 }
-
-
 
 
