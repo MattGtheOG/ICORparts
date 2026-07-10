@@ -1306,6 +1306,11 @@ textarea {
   gap: 8px;
 }
 
+.settings-tool-grid button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
 .file-button {
   min-height: 34px;
   display: inline-grid;
@@ -1757,5 +1762,4 @@ textarea {
     flex: 1 1 120px;
   }
 }
-
 

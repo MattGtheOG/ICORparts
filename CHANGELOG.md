@@ -2,11 +2,25 @@
 
 All notable changes for CounterFlow are recorded here.
 
+## 2026-07-10 - Version 0.14.4
+
+### Added
+
+- Added an admin-only in-app update screen under Settings -> Admin Tools.
+- Added a `Check Updates` action that downloads and stages the GitHub `main` branch while CounterFlow keeps running.
+- Added an `Install Update` action that copies staged app files, creates an app backup, and clearly marks that a restart is required.
+- Added local `updates/` preservation so staged packages are not included in publish or overwritten by app updates.
+
+### Changed
+
+- Updated the app version to `0.14.4`.
+
 ## 2026-07-10 - Version 0.14.3
 
 ### Added
 
 - Added `Update-CounterFlowFromGitHub.bat` and `Update-CounterFlowFromGitHub.ps1` so CounterFlow can update itself from `MattGtheOG/ICORparts`.
+- Added `Publish-CounterFlowToGitHub.bat` and `Publish-CounterFlowToGitHub.ps1` for clean source publishing from a signed-in Windows account.
 - Added a root `.gitignore` for public source uploads that excludes live databases, backups, logs, caches, and generated website build folders.
 
 ### Changed

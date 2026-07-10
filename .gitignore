@@ -6,6 +6,7 @@ service.db
 .counterflow-empty-install
 backups/
 logs/
+updates/
 __pycache__/
 *.py[cod]
 .pytest_cache/

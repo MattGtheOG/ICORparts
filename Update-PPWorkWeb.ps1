@@ -39,7 +39,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $SourceDir "static"))) {
 
 $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $BackupPath = Join-Path $BackupDir "app-before-update-$Stamp.zip"
-$PreserveNames = @("parts.db", "service.db", "backups", "logs", "__pycache__", ".git", ".codex")
+$PreserveNames = @("parts.db", "service.db", "backups", "logs", "updates", "__pycache__", ".git", ".codex")
 $CopyItems = Get-ChildItem -LiteralPath $SourceDir -Force | Where-Object { $PreserveNames -notcontains $_.Name }
 
 Write-Host "Update source: $SourceDir"

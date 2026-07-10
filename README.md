@@ -123,6 +123,14 @@ Use the GitHub updater after this app is published to `MattGtheOG/ICORparts`:
 
 Or open `Update-CounterFlowFromGitHub.bat`. The GitHub updater downloads the `main` branch, compares the app version, calls the local updater, saves an app backup, and preserves dealership databases, backups, logs, and locally uploaded brand-logo files. Restart CounterFlow after updating.
 
+Signed-in admins can also use `Settings` -> `Admin Tools` -> `Check Updates` inside CounterFlow. The in-app update screen downloads and stages the GitHub package while the server keeps running, shows the current and incoming versions, and enables `Install Update` only when a valid staged update is ready. Installing copies the app files and creates a backup, then CounterFlow should be restarted so all counters use the new version.
+
+## Publishing To GitHub
+
+Open `Publish-CounterFlowToGitHub.bat` from a normal Windows desktop session to upload the current source to `MattGtheOG/ICORparts`. The publish helper creates a clean temporary clone, excludes live SQLite databases, backups, logs, caches, and generated website output, commits the source, and pushes it to `main`.
+
+If Git asks for a login, sign in with your GitHub account. The helper does not store a password in the app folder.
+
 ## Cloud Deployment
 
 The app now includes basic cloud deployment files:

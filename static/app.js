@@ -61,6 +61,7 @@ const state = {
   brandOrderMode: "az",
   customBrandOrder: [],
   densityMode: "comfortable",
+  stagedUpdate: null,
 };
 
 const els = {};
@@ -227,6 +228,8 @@ document.addEventListener("DOMContentLoaded", () => {
     "demo-database-button",
     "backup-health-button",
     "compact-database-button",
+    "check-update-button",
+    "apply-update-button",
     "deployment-checklist-button",
     "release-notes-button",
     "backup-select",
@@ -354,6 +357,8 @@ function wireEvents() {
   els.errorLogButton.addEventListener("click", () => loadReport("errorLog"));
   els.backupHealthButton.addEventListener("click", () => loadReport("backupHealth"));
   els.compactDatabaseButton.addEventListener("click", compactDatabase);
+  els.checkUpdateButton.addEventListener("click", checkForUpdates);
+  els.applyUpdateButton.addEventListener("click", applyStagedUpdate);
   els.deploymentChecklistButton.addEventListener("click", openDeploymentChecklist);
   els.demoDatabaseButton.addEventListener("click", downloadDemoDatabase);
   els.dealershipForm.addEventListener("submit", saveAppSettings);
@@ -2774,6 +2779,148 @@ function escapeHtml(value) {
     '"': "&quot;",
     "'": "&#039;",
   }[char]));
+}
+
+function adminUpdateAccessOrPrompt(promptText) {
+  const payload = {};
+  if (isAdminEmployee()) {
+    Object.assign(payload, currentEmployeeAccess());
+  }
+  const adminPassword = els.adminPassword?.value || "";
+  if (adminPassword) {
+    payload.adminPassword = adminPassword;
+  }
+  if (payload.adminPassword || payload.sessionToken) {
+    return payload;
+  }
+  const promptedPassword = window.prompt(promptText);
+  if (promptedPassword === null) {
+    return null;
+  }
+  return { adminPassword: promptedPassword };
+}
+
+async function checkForUpdates() {
+  const payload = adminUpdateAccessOrPrompt("Admin password required to check and stage CounterFlow updates.");
+  if (!payload) {
+    return;
+  }
+  state.stagedUpdate = null;
+  if (els.applyUpdateButton) {
+    els.applyUpdateButton.disabled = true;
+  }
+  renderUpdateMessage("Checking GitHub for CounterFlow updates...");
+  try {
+    const result = await api("/api/admin/update/check", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    state.stagedUpdate = result.staged ? result : null;
+    renderUpdateStatus(result);
+    if (els.applyUpdateButton) {
+      els.applyUpdateButton.disabled = !result.staged;
+    }
+    if (result.staged) {
+      showFeedback(`Update ${result.incomingVersion} staged. Install when the counter can restart.`, "ok");
+    } else {
+      showFeedback("No newer CounterFlow update was found.", "ok");
+    }
+  } catch (error) {
+    renderUpdateMessage(error.message);
+    showFeedback(error.message, "warn");
+  }
+}
+
+async function applyStagedUpdate() {
+  if (!state.stagedUpdate) {
+    showFeedback("Check for updates before installing.", "warn");
+    return;
+  }
+  const payload = adminUpdateAccessOrPrompt("Admin password required to install the staged CounterFlow update.");
+  if (!payload) {
+    return;
+  }
+  if (!window.confirm(`Install CounterFlow ${state.stagedUpdate.incomingVersion}? Employees should finish active copies first. Restart CounterFlow after the install completes.`)) {
+    return;
+  }
+  renderUpdateMessage("Installing staged update. Keep this window open...");
+  if (els.applyUpdateButton) {
+    els.applyUpdateButton.disabled = true;
+  }
+  try {
+    const result = await api("/api/admin/update/apply", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    state.stagedUpdate = null;
+    renderUpdateInstallResult(result);
+    showFeedback(`Update files copied. Restart required. Backup: ${result.backup}`, "ok");
+  } catch (error) {
+    if (els.applyUpdateButton) {
+      els.applyUpdateButton.disabled = false;
+    }
+    renderUpdateMessage(error.message);
+    showFeedback(error.message, "warn");
+  }
+}
+
+function renderUpdateMessage(message) {
+  els.adminReportOutput.replaceChildren();
+  const heading = document.createElement("h4");
+  heading.textContent = "CounterFlow Updates";
+  const text = document.createElement("p");
+  text.textContent = message;
+  els.adminReportOutput.append(heading, text);
+}
+
+function renderUpdateStatus(result) {
+  els.adminReportOutput.replaceChildren();
+  const heading = document.createElement("h4");
+  heading.textContent = "CounterFlow Updates";
+  els.adminReportOutput.appendChild(heading);
+
+  const table = document.createElement("table");
+  table.className = "admin-report-table";
+  const tbody = document.createElement("tbody");
+  const rows = [
+    ["Current Version", result.currentVersion || "unknown"],
+    ["GitHub Version", result.incomingVersion || "unknown"],
+    ["Repository", `${result.repository || ""} (${result.branch || "main"})`],
+    ["Status", result.staged ? "Update staged" : result.updateAvailable ? "Update available" : "No newer update"],
+    ["Package", formatFileSize(result.packageSize || 0)],
+    ["Expanded Files", `${result.fileCount || 0} files, ${formatFileSize(result.expandedSize || 0)}`],
+  ];
+  rows.forEach(([label, value]) => {
+    const tr = document.createElement("tr");
+    const th = document.createElement("th");
+    const td = document.createElement("td");
+    th.textContent = label;
+    td.textContent = value;
+    tr.append(th, td);
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  els.adminReportOutput.appendChild(table);
+
+  if (Array.isArray(result.previewItems) && result.previewItems.length) {
+    const preview = document.createElement("p");
+    preview.textContent = `Files ready to copy: ${result.previewItems.slice(0, 12).join(", ")}${result.previewItems.length > 12 ? ", ..." : ""}`;
+    els.adminReportOutput.appendChild(preview);
+  }
+  const restart = document.createElement("p");
+  restart.textContent = result.staged
+    ? "Install Update can copy the staged files while the server is running. Restart CounterFlow afterward so every counter sees the new version."
+    : "The running app will stay unchanged.";
+  els.adminReportOutput.appendChild(restart);
+}
+
+function renderUpdateInstallResult(result) {
+  els.adminReportOutput.replaceChildren();
+  const heading = document.createElement("h4");
+  heading.textContent = "CounterFlow Update Installed";
+  const message = document.createElement("p");
+  message.textContent = `Installed files for version ${result.installedVersion || "unknown"}. Restart CounterFlow to use the new version. App backup: ${result.backup}.`;
+  els.adminReportOutput.append(heading, message);
 }
 
 async function loadReport(type) {

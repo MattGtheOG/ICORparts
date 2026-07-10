@@ -18,6 +18,8 @@ import socket
 import sqlite3
 import tempfile
 import traceback
+import urllib.error
+import urllib.request
 import zipfile
 from datetime import datetime, timezone
 from http import HTTPStatus
@@ -52,8 +54,24 @@ ASSETS_DIR = STATIC_DIR / "assets"
 BACKUP_DIR = DATA_DIR / "backups"
 LOG_DIR = DATA_DIR / "logs"
 LOG_FILE = LOG_DIR / "app.log"
-APP_VERSION = "0.14.3"
+APP_VERSION = "0.14.4"
 SCHEMA_VERSION = "2026-07-07-0.13.0"
+APP_UPDATE_REPOSITORY = os.environ.get("COUNTERFLOW_UPDATE_REPOSITORY", "MattGtheOG/ICORparts")
+APP_UPDATE_BRANCH = os.environ.get("COUNTERFLOW_UPDATE_BRANCH", "main")
+APP_UPDATE_DIR = DATA_DIR / "updates"
+STAGED_UPDATE_DIR = APP_UPDATE_DIR / "staged"
+STAGED_UPDATE_META = APP_UPDATE_DIR / "staged-update.json"
+APP_UPDATE_PRESERVE_NAMES = {
+    "parts.db",
+    "service.db",
+    "backups",
+    "logs",
+    "updates",
+    "__pycache__",
+    ".git",
+    ".codex",
+    ".counterflow-empty-install",
+}
 DEFAULT_DEPARTMENT = "parts"
 DEPARTMENTS = {
     "parts": {"label": "Parts", "db": DATA_DIR / "parts.db", "seed": True},
@@ -177,6 +195,75 @@ def friendly_error_message(error: BaseException) -> tuple[HTTPStatus, str]:
     if isinstance(error, FileNotFoundError):
         return HTTPStatus.NOT_FOUND, "The requested file could not be found."
     return HTTPStatus.INTERNAL_SERVER_ERROR, "Something went wrong. The error was logged for review."
+
+
+def read_app_version_from_server(server_path: Path) -> str:
+    if not server_path.exists():
+        return "unknown"
+    match = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', server_path.read_text(encoding="utf-8", errors="replace"))
+    return match.group(1) if match else "unknown"
+
+
+def compare_version_text(left: str, right: str) -> int:
+    def parts(value: str) -> list[int | str]:
+        result: list[int | str] = []
+        for chunk in re.split(r"[.\-+_]", clean_text(value)):
+            if chunk.isdigit():
+                result.append(int(chunk))
+            elif chunk:
+                result.append(chunk.lower())
+        return result or [0]
+
+    left_parts = parts(left)
+    right_parts = parts(right)
+    for index in range(max(len(left_parts), len(right_parts))):
+        left_value = left_parts[index] if index < len(left_parts) else 0
+        right_value = right_parts[index] if index < len(right_parts) else 0
+        if left_value == right_value:
+            continue
+        if isinstance(left_value, int) and isinstance(right_value, int):
+            return 1 if left_value > right_value else -1
+        return 1 if str(left_value) > str(right_value) else -1
+    return 0
+
+
+def folder_size(path: Path) -> int:
+    total = 0
+    if not path.exists():
+        return total
+    for item in path.rglob("*"):
+        if item.is_file():
+            try:
+                total += item.stat().st_size
+            except OSError:
+                pass
+    return total
+
+
+def safe_remove_tree(target: Path, root: Path) -> None:
+    resolved_target = target.resolve()
+    resolved_root = root.resolve()
+    if resolved_target == resolved_root or not str(resolved_target).startswith(str(resolved_root)):
+        raise ValueError(f"Refusing to remove unsafe update path: {resolved_target}")
+    if resolved_target.exists():
+        shutil.rmtree(resolved_target)
+
+
+def create_app_backup_zip(reason: str) -> Path:
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    target = BACKUP_DIR / f"app-{reason}-{stamp}.zip"
+    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as archive:
+        for item in BASE_DIR.iterdir():
+            if item.name in APP_UPDATE_PRESERVE_NAMES:
+                continue
+            if item.is_file():
+                archive.write(item, item.name)
+            elif item.is_dir():
+                for nested in item.rglob("*"):
+                    if nested.is_file():
+                        archive.write(nested, nested.relative_to(BASE_DIR))
+    return target
 
 
 def connect(department: str = DEFAULT_DEPARTMENT) -> sqlite3.Connection:
@@ -1290,6 +1377,12 @@ class PartsHandler(BaseHTTPRequestHandler):
             if parsed.path == "/api/admin/compact":
                 self.compact_database_endpoint()
                 return
+            if parsed.path == "/api/admin/update/check":
+                self.check_for_update_endpoint()
+                return
+            if parsed.path == "/api/admin/update/apply":
+                self.apply_staged_update_endpoint()
+                return
             if parsed.path == "/api/import/parts":
                 self.import_parts_csv()
                 return
@@ -1406,6 +1499,14 @@ class PartsHandler(BaseHTTPRequestHandler):
             return True
         label = PERMISSION_DEFINITIONS.get(permission, permission)
         self.send_error_json(HTTPStatus.FORBIDDEN, f"Admin password or {label} role permission is required to {action}.")
+        return False
+
+    def require_update_admin(self, payload: dict | None, action: str) -> bool:
+        if valid_admin_password((payload or {}).get("adminPassword")):
+            return True
+        if employee_from_session(payload, {"admin"}):
+            return True
+        self.send_error_json(HTTPStatus.FORBIDDEN, f"Signed-in admin or admin password is required to {action}.")
         return False
 
     def handle_api_get(self, parsed) -> None:
@@ -2277,6 +2378,134 @@ class PartsHandler(BaseHTTPRequestHandler):
         shutil.copy2(target, db_path_for_department(self.department))
         init_db()
         self.send_json({"ok": True, "restored": target.name, "safetyBackup": safety.name})
+
+    def check_for_update_endpoint(self) -> None:
+        payload = self.read_json() if int(self.headers.get("Content-Length") or 0) else {}
+        if payload is None:
+            return
+        if not self.require_update_admin(payload, "check for app updates"):
+            return
+
+        repository = clean_text(payload.get("repository")) or APP_UPDATE_REPOSITORY
+        branch = clean_text(payload.get("branch")) or APP_UPDATE_BRANCH
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
+            self.send_error_json(HTTPStatus.BAD_REQUEST, "Update repository must be in owner/name format.")
+            return
+        if not re.fullmatch(r"[A-Za-z0-9_./-]+", branch) or ".." in branch:
+            self.send_error_json(HTTPStatus.BAD_REQUEST, "Update branch name is not valid.")
+            return
+
+        APP_UPDATE_DIR.mkdir(parents=True, exist_ok=True)
+        safe_remove_tree(STAGED_UPDATE_DIR, APP_UPDATE_DIR)
+        if STAGED_UPDATE_META.exists():
+            STAGED_UPDATE_META.unlink()
+
+        archive_url = f"https://github.com/{repository}/archive/refs/heads/{branch}.zip"
+        download_dir = APP_UPDATE_DIR / f"download-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        zip_path = download_dir / "counterflow-update.zip"
+        extract_dir = download_dir / "extract"
+        download_dir.mkdir(parents=True, exist_ok=True)
+        extract_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            request = urllib.request.Request(archive_url, headers={"User-Agent": "CounterFlow-Updater"})
+            with urllib.request.urlopen(request, timeout=45) as response, zip_path.open("wb") as handle:
+                shutil.copyfileobj(response, handle)
+            with zipfile.ZipFile(zip_path) as archive:
+                archive.extractall(extract_dir)
+        except (urllib.error.URLError, TimeoutError, zipfile.BadZipFile, OSError) as error:
+            safe_remove_tree(download_dir, APP_UPDATE_DIR)
+            log_exception(error, action="check_for_update", repository=repository, branch=branch)
+            self.send_error_json(HTTPStatus.SERVICE_UNAVAILABLE, "Could not download or read the GitHub update package.")
+            return
+
+        candidates = list(extract_dir.rglob("server.py"))
+        source_dir = candidates[0].parent if candidates else None
+        if source_dir is None or not (source_dir / "static").exists():
+            safe_remove_tree(download_dir, APP_UPDATE_DIR)
+            self.send_error_json(HTTPStatus.BAD_GATEWAY, "The GitHub update package does not look like a CounterFlow app folder.")
+            return
+
+        incoming_version = read_app_version_from_server(source_dir / "server.py")
+        update_available = incoming_version != "unknown" and compare_version_text(incoming_version, APP_VERSION) > 0
+        allow_same_version = bool(payload.get("allowSameVersion"))
+        copy_items = [item.name for item in source_dir.iterdir() if item.name not in APP_UPDATE_PRESERVE_NAMES]
+        meta = {
+            "repository": repository,
+            "branch": branch,
+            "archiveUrl": archive_url,
+            "currentVersion": APP_VERSION,
+            "incomingVersion": incoming_version,
+            "updateAvailable": update_available,
+            "staged": bool(update_available or allow_same_version),
+            "stagedAt": now_iso(),
+            "sourceDir": str(source_dir),
+            "packageSize": zip_path.stat().st_size if zip_path.exists() else 0,
+            "expandedSize": folder_size(source_dir),
+            "fileCount": sum(1 for item in source_dir.rglob("*") if item.is_file()),
+            "previewItems": copy_items,
+        }
+
+        if update_available or allow_same_version:
+            shutil.move(str(download_dir), STAGED_UPDATE_DIR)
+            staged_source = STAGED_UPDATE_DIR / "extract" / source_dir.name
+            meta["sourceDir"] = str(staged_source)
+            STAGED_UPDATE_META.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+        else:
+            safe_remove_tree(download_dir, APP_UPDATE_DIR)
+
+        self.send_json(meta)
+
+    def apply_staged_update_endpoint(self) -> None:
+        payload = self.read_json() if int(self.headers.get("Content-Length") or 0) else {}
+        if payload is None:
+            return
+        if not self.require_update_admin(payload, "install app updates"):
+            return
+        if not STAGED_UPDATE_META.exists():
+            self.send_error_json(HTTPStatus.BAD_REQUEST, "No staged update was found. Check for updates first.")
+            return
+
+        try:
+            meta = json.loads(STAGED_UPDATE_META.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            self.send_error_json(HTTPStatus.CONFLICT, "The staged update metadata could not be read. Check for updates again.")
+            return
+
+        source_dir = Path(clean_text(meta.get("sourceDir"))).resolve()
+        if not str(source_dir).startswith(str(STAGED_UPDATE_DIR.resolve())) or not (source_dir / "server.py").exists() or not (source_dir / "static").exists():
+            self.send_error_json(HTTPStatus.CONFLICT, "The staged update files are missing or invalid. Check for updates again.")
+            return
+
+        backup = create_app_backup_zip("before-update")
+        copied = []
+        try:
+            for item in source_dir.iterdir():
+                if item.name in APP_UPDATE_PRESERVE_NAMES:
+                    continue
+                destination = BASE_DIR / item.name
+                if item.is_dir():
+                    shutil.copytree(item, destination, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(item, destination)
+                copied.append(item.name)
+        except OSError as error:
+            log_exception(error, action="apply_staged_update", source=str(source_dir))
+            self.send_error_json(HTTPStatus.SERVICE_UNAVAILABLE, f"Update copy failed. App backup saved: {backup.name}.")
+            return
+
+        meta["installedAt"] = now_iso()
+        meta["backup"] = backup.name
+        meta["copiedItems"] = copied
+        STAGED_UPDATE_META.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+        self.send_json({
+            "ok": True,
+            "currentVersion": APP_VERSION,
+            "installedVersion": meta.get("incomingVersion", "unknown"),
+            "backup": backup.name,
+            "copiedItems": copied,
+            "restartRequired": True,
+        })
 
     def part_export_rows(self) -> list[sqlite3.Row]:
         with self.db_connection() as db:
