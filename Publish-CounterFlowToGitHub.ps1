@@ -55,12 +55,7 @@ $ExcludeDirs = @(
     ".venv",
     "venv",
     "env",
-    "website\.git",
-    "website\.wrangler",
-    "website\node_modules",
-    "website\dist",
-    "website\outputs",
-    "website\.vinext"
+    "website"
 )
 $ExcludeFiles = @(
     "parts.db",

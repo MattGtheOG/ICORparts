@@ -26,7 +26,7 @@ The original feature checklist has been completed through version `0.11.0`. This
 
 - [x] Add backup health checks with warnings when daily backups have not run.
 - [x] Add a database compact/repair tool for admins.
-- [ ] Add a guided update screen that shows the current and incoming app version before updating.
+- [x] Add a guided update screen that shows the current and incoming app version before updating.
 - [x] Add a deployment checklist for shared-folder, single-host network, and cloud-hosted setups.
 
 ## Paused For Later

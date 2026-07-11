@@ -310,7 +310,6 @@ function wireEvents() {
 
   els.editToggle.addEventListener("change", () => {
     state.editMode = els.editToggle.checked;
-    els.addButton.classList.toggle("is-visible", state.editMode);
     renderParts();
   });
 
@@ -3460,7 +3459,6 @@ function handleKeyboardShortcuts(event) {
     event.preventDefault();
     els.editToggle.checked = !els.editToggle.checked;
     state.editMode = els.editToggle.checked;
-    els.addButton.classList.toggle("is-visible", state.editMode);
     renderParts();
     showFeedback(state.editMode ? "Edit mode on." : "Edit mode off.", "ok");
     return;

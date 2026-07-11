@@ -4,7 +4,7 @@ CounterFlow is a shared parts and service counter reference board for powersport
 
 ## Showcase Website
 
-Open `website/index.html` to view the standalone CounterFlow product website. It presents the dealership workflow, current features, benefits, product screenshots, and the boundary between CounterFlow and the dealership's CRM, DMS, POS, and OEM catalogs. The website is responsive and does not require the CounterFlow server to display.
+The standalone CounterFlow product website is maintained separately at `C:\Users\mattg\OneDrive\Desktop\Codex\Websites\CounterFlow`. It is excluded from this application's GitHub publishing workflow.
 
 ## Run It
 
@@ -36,7 +36,7 @@ The app uses `parts.db` for the Parts department and `service.db` for the Servic
 
 ## Editing Part Numbers
 
-Turn on `Edit`, then select a part to change its part number, label, model, or category. Use `Add Part` for new items. Deleted parts are hidden from the board.
+Use `Add Part` at any time to create a new item. Turn on `Edit`, then select an existing part to change its part number, label, model, or category. Deleted parts are hidden from the board.
 
 The original Can-Am form only had model choices and no saved part-number buttons, so the Can-Am board starts with editable placeholders. Fill those in from `Edit` as the dealership confirms each current part number.
 
@@ -76,7 +76,7 @@ Those demo accounts are created only inside the downloadable demo databases. The
 
 ## Moving To Another PC
 
-Copy the full CounterFlow application folder. The current folder name can remain `PPWorkWeb` for compatibility. It includes the database and brand images, and the launcher can use the bundled Codex Python on this PC or a normal Python 3 install on another PC.
+Copy the full `Counterflow` application folder. It includes the database and brand images, and the launcher can use the bundled Codex Python on this PC or a normal Python 3 install on another PC. The legacy `PPWorkWeb` script names remain supported for update-package and startup-task compatibility.
 
 ## Network Use
 

@@ -2,6 +2,29 @@
 
 All notable changes for CounterFlow are recorded here.
 
+## 2026-07-11 - Version 0.14.11
+
+### Changed
+
+- Kept the `Add Part` button visible at all times so employees do not need to turn on Edit mode before creating a part.
+- Updated the app version to `0.14.11` so the GitHub and in-app update tools can detect this release.
+
+## 2026-07-10 - Version 0.14.10
+
+### Changed
+
+- Renamed the local application folder from `PPWorkWeb` to `Counterflow` and the companion backup folder from `PPWorkWeb_Backups` to `Counterflow_backups`.
+- Confirmed launchers and update tools resolve paths relative to their installed location, so the new folder name does not change database, backup, log, asset, or update behavior.
+- Updated the app version to `0.14.10` so the GitHub and in-app update tools can detect this release.
+
+## 2026-07-10 - Version 0.14.9
+
+### Changed
+
+- Moved the standalone showcase website out of the application folder to `C:\Users\mattg\OneDrive\Desktop\Codex\Websites\CounterFlow`.
+- Excluded the entire `website` folder from the CounterFlow GitHub publishing workflow so the next publish removes the previously tracked website files and future publishes do not upload them.
+- Updated the app version to `0.14.9` so the GitHub and in-app update tools can detect this release.
+
 ## 2026-07-10 - Version 0.14.8
 
 ### Added
