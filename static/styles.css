@@ -1157,6 +1157,10 @@ dialog::backdrop {
   text-transform: uppercase;
 }
 
+.advanced-filter-field[hidden] {
+  display: none !important;
+}
+
 .employee-row:hover,
 .employee-row:focus-visible,
 .employee-row.is-active {

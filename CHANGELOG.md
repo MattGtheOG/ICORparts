@@ -2,6 +2,17 @@
 
 All notable changes for CounterFlow are recorded here.
 
+## 2026-07-10 - Version 0.14.6
+
+### Fixed
+
+- Repaired the Search `Filters` button so Family, Model, and Category fields actually hide when collapsed and appear when opened.
+- The filter control continues to remember each browser's open or closed preference and now correctly reflects its visible state.
+
+### Changed
+
+- Updated the app version to `0.14.6` so the GitHub and in-app update tools can detect this release.
+
 ## 2026-07-10 - Version 0.14.5
 
 ### Added
