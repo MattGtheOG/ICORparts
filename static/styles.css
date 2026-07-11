@@ -548,6 +548,14 @@ select:focus {
   color: #ffffff;
 }
 
+.required-marker {
+  color: #b42318;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 .feedback {
   min-height: 34px;
   display: flex;

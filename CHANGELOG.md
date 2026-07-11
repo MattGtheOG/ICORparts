@@ -2,6 +2,14 @@
 
 All notable changes for CounterFlow are recorded here.
 
+## 2026-07-11 - Version 0.14.12
+
+### Changed
+
+- Simplified the Add Part form by removing the Old Part Number, New Part Number, and Vendor fields from the visible editor.
+- Moved Brand, Item, and Part Number to the top of the form and visibly marked each required field.
+- Updated the app version to `0.14.12` so the GitHub and in-app update tools can detect this release.
+
 ## 2026-07-11 - Version 0.14.11
 
 ### Changed

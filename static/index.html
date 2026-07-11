@@ -179,11 +179,22 @@
         </div>
 
         <input id="part-id" type="hidden">
+        <input id="part-old-part-number" type="hidden">
+        <input id="part-new-part-number" type="hidden">
+        <input id="part-vendor" type="hidden">
 
         <div class="form-grid">
           <label>
-            <span>Brand</span>
+            <span>Brand <strong class="required-marker">Required</strong></span>
             <input id="part-brand" required>
+          </label>
+          <label>
+            <span>Item <strong class="required-marker">Required</strong></span>
+            <input id="part-item" required>
+          </label>
+          <label>
+            <span>Part Number <strong class="required-marker">Required</strong></span>
+            <input id="part-number" required>
           </label>
           <label>
             <span>Family</span>
@@ -228,29 +239,9 @@
             <span>Review Note</span>
             <input id="part-review-note" placeholder="Reason this needs confirmation">
           </label>
-          <label>
-            <span>Item</span>
-            <input id="part-item" required>
-          </label>
           <label hidden>
             <span>Button Text</span>
             <input id="part-button-text">
-          </label>
-          <label>
-            <span>Part Number</span>
-            <input id="part-number" required>
-          </label>
-          <label hidden>
-            <span>Old Part Number</span>
-            <input id="part-old-part-number">
-          </label>
-          <label hidden>
-            <span>New Part Number</span>
-            <input id="part-new-part-number">
-          </label>
-          <label hidden>
-            <span>Vendor</span>
-            <input id="part-vendor">
           </label>
           <label>
             <span>Alternate Numbers</span>
