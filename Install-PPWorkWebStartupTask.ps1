@@ -8,10 +8,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $AppDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Launcher = Join-Path $AppDir "Start-PPWorkWeb.ps1"
+$Launcher = Join-Path $AppDir "Start-CounterFlow.ps1"
 
 if (-not (Test-Path -LiteralPath $Launcher)) {
-    throw "Start-PPWorkWeb.ps1 was not found next to this installer."
+    throw "Start-CounterFlow.ps1 was not found next to this installer."
 }
 
 $Arguments = @(

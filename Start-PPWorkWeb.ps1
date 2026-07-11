@@ -1,4 +1,5 @@
 param(
+    [ValidateRange(1, 65535)]
     [int]$Port = 8765,
     [string]$HostAddress = "127.0.0.1",
     [string]$DataDir = "",
@@ -6,42 +7,11 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$AppDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$BundledPython = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+$CounterFlowLauncher = Join-Path $PSScriptRoot "Start-CounterFlow.ps1"
 
-function Test-Python($Path) {
-    if (-not $Path -or -not (Test-Path -LiteralPath $Path)) {
-        return $false
-    }
-
-    & $Path --version *> $null
-    return $LASTEXITCODE -eq 0
+if (-not (Test-Path -LiteralPath $CounterFlowLauncher)) {
+    throw "Start-CounterFlow.ps1 was not found next to this legacy launcher."
 }
 
-$Python = $null
-$PythonCommand = Get-Command python -ErrorAction SilentlyContinue
-if ($PythonCommand -and (Test-Python $PythonCommand.Source)) {
-    $Python = $PythonCommand.Source
-}
-elseif (Test-Python $BundledPython) {
-    $Python = $BundledPython
-}
-else {
-    throw "Python was not found. Install Python 3.12 or run this from Codex on this PC."
-}
-
-if ($DataDir) {
-    $ResolvedDataDir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($DataDir)
-    New-Item -ItemType Directory -Force -Path $ResolvedDataDir | Out-Null
-    $env:PPWORK_DATA_DIR = $ResolvedDataDir
-    Write-Host "Using CounterFlow data folder: $ResolvedDataDir"
-}
-
-$Url = "http://localhost:$Port/"
-if (-not $NoBrowser) {
-    Start-Process $Url
-}
-else {
-    Write-Host "CounterFlow URL: $Url"
-}
-& $Python (Join-Path $AppDir "server.py") --host $HostAddress --port $Port
+& $CounterFlowLauncher -Port $Port -HostAddress $HostAddress -DataDir $DataDir -NoBrowser:$NoBrowser
+exit $LASTEXITCODE

@@ -8,7 +8,7 @@ The standalone CounterFlow product website is maintained separately at `C:\Users
 
 ## Run It
 
-Open `Start-CounterFlow.bat` from this folder. It starts the local web server and opens:
+Open `Start-CounterFlow.bat` from this folder. It starts the local web server, shows the app folder, Python, data folder, and URL in the launcher window, then opens:
 
 ```text
 http://localhost:8765/
@@ -76,7 +76,7 @@ Those demo accounts are created only inside the downloadable demo databases. The
 
 ## Moving To Another PC
 
-Copy the full `Counterflow` application folder. It includes the database and brand images, and the launcher can use the bundled Codex Python on this PC or a normal Python 3 install on another PC. The legacy `PPWorkWeb` script names remain supported for update-package and startup-task compatibility.
+Copy the full `Counterflow` application folder. It includes the database and brand images, and the launcher can use the bundled Codex Python on this PC or a normal Python 3 install on another PC. `Start-CounterFlow.ps1` is the primary launcher; the legacy `PPWorkWeb` script names remain supported for update-package and shortcut compatibility.
 
 ## Network Use
 

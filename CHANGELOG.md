@@ -2,6 +2,14 @@
 
 All notable changes for CounterFlow are recorded here.
 
+## 2026-07-11 - Version 0.14.13
+
+### Changed
+
+- Reworked `Start-CounterFlow.ps1` into the primary server launcher with a cleaner console banner, clearer startup details, friendly failure messages, and the same Python/data-folder behavior as before.
+- Kept legacy `Start-PPWorkWeb` launchers as compatibility wrappers while pointing new startup tasks at `Start-CounterFlow.ps1`.
+- Updated the app version to `0.14.13` so the GitHub and in-app update tools can detect this release.
+
 ## 2026-07-11 - Version 0.14.12
 
 ### Changed
