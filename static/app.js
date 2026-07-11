@@ -233,6 +233,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "compact-database-button",
     "check-update-button",
     "apply-update-button",
+    "restart-server-button",
     "deployment-checklist-button",
     "release-notes-button",
     "backup-select",
@@ -364,6 +365,7 @@ function wireEvents() {
   els.compactDatabaseButton.addEventListener("click", compactDatabase);
   els.checkUpdateButton.addEventListener("click", checkForUpdates);
   els.applyUpdateButton.addEventListener("click", applyStagedUpdate);
+  els.restartServerButton.addEventListener("click", restartServer);
   els.deploymentChecklistButton.addEventListener("click", openDeploymentChecklist);
   els.demoDatabaseButton.addEventListener("click", downloadDemoDatabase);
   els.dealershipForm.addEventListener("submit", saveAppSettings);
@@ -2893,6 +2895,54 @@ async function applyStagedUpdate() {
     renderUpdateMessage(error.message);
     showFeedback(error.message, "warn");
   }
+}
+
+async function restartServer() {
+  const payload = adminUpdateAccessOrPrompt("Admin password required to restart CounterFlow.");
+  if (!payload) {
+    return;
+  }
+  if (!window.confirm("Restart CounterFlow now? Every open counter will reconnect momentarily. Make sure employees finish active copies first.")) {
+    return;
+  }
+
+  els.restartServerButton.disabled = true;
+  renderUpdateMessage("Restarting CounterFlow. Reconnecting all counters...");
+  try {
+    const result = await api("/api/admin/restart", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    showFeedback("Server restart requested. Reconnecting...", "ok");
+    await waitForServerRestart(result.instanceId, result.restartDelayMs || 750);
+  } catch (error) {
+    els.restartServerButton.disabled = false;
+    renderUpdateMessage(error.message);
+    showFeedback(error.message, "warn");
+  }
+}
+
+async function waitForServerRestart(previousInstanceId, restartDelayMs) {
+  const deadline = Date.now() + 20000;
+  await new Promise((resolve) => window.setTimeout(resolve, Math.max(500, restartDelayMs)));
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(apiUrl("/api/version"), { cache: "no-store" });
+      if (response.ok) {
+        const result = await response.json();
+        if (result.instanceId && result.instanceId !== previousInstanceId) {
+          window.location.reload();
+          return;
+        }
+      }
+    } catch {
+      // The server is expected to be briefly unavailable while it restarts.
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 500));
+  }
+  els.restartServerButton.disabled = false;
+  renderUpdateMessage("CounterFlow did not report back after the restart request. Refresh this page or restart it from the launcher.");
+  showFeedback("Server restart could not be confirmed.", "warn");
 }
 
 function renderUpdateMessage(message) {

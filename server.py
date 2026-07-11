@@ -16,7 +16,9 @@ import secrets
 import shutil
 import socket
 import sqlite3
+import sys
 import tempfile
+import threading
 import traceback
 import urllib.error
 import urllib.request
@@ -54,7 +56,8 @@ ASSETS_DIR = STATIC_DIR / "assets"
 BACKUP_DIR = DATA_DIR / "backups"
 LOG_DIR = DATA_DIR / "logs"
 LOG_FILE = LOG_DIR / "app.log"
-APP_VERSION = "0.14.6"
+APP_VERSION = "0.14.7"
+SERVER_INSTANCE_ID = secrets.token_urlsafe(12)
 SCHEMA_VERSION = "2026-07-07-0.13.0"
 APP_UPDATE_REPOSITORY = os.environ.get("COUNTERFLOW_UPDATE_REPOSITORY", "MattGtheOG/ICORparts")
 APP_UPDATE_BRANCH = os.environ.get("COUNTERFLOW_UPDATE_BRANCH", "main")
@@ -226,6 +229,22 @@ def compare_version_text(left: str, right: str) -> int:
             return 1 if left_value > right_value else -1
         return 1 if str(left_value) > str(right_value) else -1
     return 0
+
+
+def schedule_server_restart(server: ThreadingHTTPServer, delay_seconds: float = 0.75) -> None:
+    host, port = server.server_address[:2]
+    command = [sys.executable, str(BASE_DIR / "server.py"), "--host", str(host), "--port", str(port)]
+
+    def restart() -> None:
+        try:
+            log_event("info", "Restarting CounterFlow server", host=str(host), port=int(port))
+            os.execv(sys.executable, command)
+        except BaseException as error:
+            log_exception(error, action="restart_server", host=str(host), port=int(port))
+
+    timer = threading.Timer(delay_seconds, restart)
+    timer.daemon = True
+    timer.start()
 
 
 def folder_size(path: Path) -> int:
@@ -1416,6 +1435,9 @@ class PartsHandler(BaseHTTPRequestHandler):
             if parsed.path == "/api/admin/compact":
                 self.compact_database_endpoint()
                 return
+            if parsed.path == "/api/admin/restart":
+                self.restart_server_endpoint()
+                return
             if parsed.path == "/api/admin/update/check":
                 self.check_for_update_endpoint()
                 return
@@ -1665,7 +1687,7 @@ class PartsHandler(BaseHTTPRequestHandler):
         })
 
     def get_version(self) -> None:
-        self.send_json({"version": APP_VERSION})
+        self.send_json({"version": APP_VERSION, "instanceId": SERVER_INSTANCE_ID})
 
     def get_release_notes(self) -> None:
         path = BASE_DIR / "CHANGELOG.md"
@@ -2429,6 +2451,19 @@ class PartsHandler(BaseHTTPRequestHandler):
         shutil.copy2(target, db_path_for_department(self.department))
         init_db()
         self.send_json({"ok": True, "restored": target.name, "safetyBackup": safety.name})
+
+    def restart_server_endpoint(self) -> None:
+        payload = self.read_json() if int(self.headers.get("Content-Length") or 0) else {}
+        if payload is None:
+            return
+        if not self.require_update_admin(payload, "restart CounterFlow"):
+            return
+        self.send_json({
+            "ok": True,
+            "instanceId": SERVER_INSTANCE_ID,
+            "restartDelayMs": 750,
+        })
+        schedule_server_restart(self.server)
 
     def check_for_update_endpoint(self) -> None:
         payload = self.read_json() if int(self.headers.get("Content-Length") or 0) else {}

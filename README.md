@@ -52,7 +52,7 @@ The `Dealership` tab controls the dealership name, location name, department lab
 
 The `Brands` tab contains active brands, saved brands, and brand order controls. Brand order can be A-Z, Z-A, most parts, least parts, or a custom order that can be locked into the database. Deleting a brand asks twice, then saves and hides the brand with its parts so it can be restored later from `Saved Brands`. Saved brands can also be removed forever from the app after entering the admin password; their old database rows and part numbers stay available for admin backup.
 
-Admin Tools include backup creation and restore, import/export, quality reports, backup health, database compact/repair, migration history, error logs, release notes, demo data download, and printable setup/network/deployment sheets. Import, export, brand editing, brand deletion, employee editing, and permanent saved-brand removal are checked against role permissions, with the admin password still available as an override.
+Admin Tools include backup creation and restore, import/export, quality reports, backup health, database compact/repair, migration history, error logs, server restart, release notes, demo data download, and printable setup/network/deployment sheets. Import, export, brand editing, brand deletion, employee editing, and permanent saved-brand removal are checked against role permissions, with the admin password still available as an override.
 
 
 ## Demo Database

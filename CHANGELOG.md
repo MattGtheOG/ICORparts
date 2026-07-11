@@ -2,6 +2,21 @@
 
 All notable changes for CounterFlow are recorded here.
 
+## 2026-07-10 - Version 0.14.7
+
+### Added
+
+- Added an admin-only `Restart Server` action in Settings -> Admin Tools.
+- The restart action confirms the interruption, restarts the current CounterFlow process with its existing host, port, and data-folder settings, then reconnects the browser once the new server instance is available.
+
+### Changed
+
+- Updated the app version to `0.14.7` so the GitHub and in-app update tools can detect this release.
+
+### Verified
+
+- Confirmed an authorized restart returns the app on the same port with a new server instance ID.
+
 ## 2026-07-10 - Version 0.14.6
 
 ### Fixed
