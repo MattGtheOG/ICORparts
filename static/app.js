@@ -6,6 +6,7 @@ const DEFAULT_PERMISSION_ACTIONS = [
   { key: "import", label: "Import parts" },
   { key: "export", label: "Export parts" },
   { key: "brandEdit", label: "Brand editing" },
+  { key: "brandDelete", label: "Brand deletion" },
   { key: "employeeEdit", label: "Employee editing" },
   { key: "permanentBrandDelete", label: "Permanent saved-brand removal" },
 ];
@@ -62,6 +63,7 @@ const state = {
   customBrandOrder: [],
   densityMode: "comfortable",
   stagedUpdate: null,
+  advancedFiltersOpen: localStorage.getItem("ppwork-advanced-filters") === "open",
 };
 
 const els = {};
@@ -78,6 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "save-search-preset-button",
     "delete-search-preset-button",
     "copy-template-select",
+    "advanced-filters-toggle",
     "family-filter",
     "model-filter",
     "category-filter",
@@ -245,6 +248,7 @@ document.addEventListener("DOMContentLoaded", () => {
   applyThemeVariant(localStorage.getItem("ppwork-theme-variant") || "classic");
   applyDensityMode(localStorage.getItem("ppwork-density") || "comfortable");
   applyBrandOrderMode(localStorage.getItem("ppwork-brand-order") || "az");
+  applyAdvancedFilterVisibility();
   loadSavedSearchPresets();
   loadCopyTemplate();
   wireEvents();
@@ -265,6 +269,7 @@ function wireEvents() {
   els.saveSearchPresetButton.addEventListener("click", saveCurrentSearchPreset);
   els.deleteSearchPresetButton.addEventListener("click", deleteSelectedSearchPreset);
   els.copyTemplateSelect.addEventListener("change", () => saveCopyTemplate(els.copyTemplateSelect.value));
+  els.advancedFiltersToggle.addEventListener("click", toggleAdvancedFilters);
 
   els.searchInput.addEventListener(
     "input",
@@ -381,6 +386,28 @@ function wireEvents() {
   });
   document.addEventListener("keydown", handleKeyboardShortcuts);
 }
+
+function toggleAdvancedFilters() {
+  state.advancedFiltersOpen = !state.advancedFiltersOpen;
+  localStorage.setItem("ppwork-advanced-filters", state.advancedFiltersOpen ? "open" : "closed");
+  applyAdvancedFilterVisibility();
+}
+
+function applyAdvancedFilterVisibility() {
+  document.querySelectorAll(".advanced-filter-field").forEach((field) => {
+    field.hidden = !state.advancedFiltersOpen;
+  });
+  if (els.advancedFiltersToggle) {
+    const advancedFilterIsActive = Boolean(state.filters.family || state.filters.model || state.filters.category);
+    els.advancedFiltersToggle.setAttribute("aria-expanded", String(state.advancedFiltersOpen));
+    els.advancedFiltersToggle.textContent = state.advancedFiltersOpen
+      ? "Hide Filters"
+      : advancedFilterIsActive
+        ? "Filters Active"
+        : "Filters";
+  }
+}
+
 function selectSettingsTab(tabName) {
   const availableTabs = isAdminEmployee() ? ["employees", "dealership", "brands"] : ["brands"];
   const selected = availableTabs.includes(tabName) ? tabName : availableTabs[0];
@@ -1890,6 +1917,10 @@ async function savePart(event) {
 
   const id = els.partId.value;
   const payload = readForm();
+  if (!payload.brand || !payload.item || !payload.partNumber) {
+    showFeedback("Brand, item, and part number are required.", "warn");
+    return;
+  }
   const path = id ? `/api/parts/${id}` : "/api/parts";
   const method = id ? "PUT" : "POST";
 
@@ -2055,7 +2086,7 @@ async function deleteBrand() {
 
   try {
     const accessPayload = protectedAccessOrPrompt(
-      `Admin password or brand editing role permission is required to save and hide ${name}.`,
+      `Admin password or brand deletion role permission is required to save and hide ${name}.`,
       { archiveNote: els.brandArchiveNote.value.trim() },
     );
     if (!accessPayload) {
@@ -2087,7 +2118,7 @@ ${detail}${note}`)) {
   }
   try {
     const accessPayload = protectedAccessOrPrompt(
-      `Admin password or brand editing role permission is required to restore ${brand.name}.`,
+      `Admin password or brand deletion role permission is required to restore ${brand.name}.`,
     );
     if (!accessPayload) {
       return;

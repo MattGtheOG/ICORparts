@@ -54,7 +54,7 @@ ASSETS_DIR = STATIC_DIR / "assets"
 BACKUP_DIR = DATA_DIR / "backups"
 LOG_DIR = DATA_DIR / "logs"
 LOG_FILE = LOG_DIR / "app.log"
-APP_VERSION = "0.14.4"
+APP_VERSION = "0.14.5"
 SCHEMA_VERSION = "2026-07-07-0.13.0"
 APP_UPDATE_REPOSITORY = os.environ.get("COUNTERFLOW_UPDATE_REPOSITORY", "MattGtheOG/ICORparts")
 APP_UPDATE_BRANCH = os.environ.get("COUNTERFLOW_UPDATE_BRANCH", "main")
@@ -104,6 +104,7 @@ PERMISSION_DEFINITIONS = {
     "import": "Import parts",
     "export": "Export parts",
     "brandEdit": "Brand editing",
+    "brandDelete": "Brand deletion",
     "employeeEdit": "Employee editing",
     "permanentBrandDelete": "Permanent saved-brand removal",
 }
@@ -249,20 +250,58 @@ def safe_remove_tree(target: Path, root: Path) -> None:
         shutil.rmtree(resolved_target)
 
 
-def create_app_backup_zip(reason: str) -> Path:
+def json_rows(db: sqlite3.Connection, query: str, params: tuple[object, ...] = ()) -> list[dict[str, object]]:
+    return [dict(row) for row in db.execute(query, params).fetchall()]
+
+
+def write_json_archive_entry(archive: zipfile.ZipFile, path: str, payload: object) -> None:
+    archive.writestr(path, json.dumps(payload, indent=2, default=str))
+
+
+def safe_employee_backup_rows(db: sqlite3.Connection) -> list[dict[str, object]]:
+    available = {row["name"] for row in db.execute("PRAGMA table_info(employees)").fetchall()}
+    safe_columns = [
+        "id",
+        "name",
+        "username",
+        "role",
+        "allowed_departments",
+        "location_scope",
+        "active",
+        "created_at",
+        "updated_at",
+        "last_login_at",
+    ]
+    selected = [column for column in safe_columns if column in available]
+    if not selected:
+        return []
+    return json_rows(
+        db,
+        f"SELECT {', '.join(selected)} FROM employees ORDER BY name COLLATE NOCASE",
+    )
+
+
+def create_update_data_backup_zip(reason: str) -> Path:
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    target = BACKUP_DIR / f"app-{reason}-{stamp}.zip"
+    target = BACKUP_DIR / f"update-data-{reason}-{stamp}.zip"
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as archive:
-        for item in BASE_DIR.iterdir():
-            if item.name in APP_UPDATE_PRESERVE_NAMES:
-                continue
-            if item.is_file():
-                archive.write(item, item.name)
-            elif item.is_dir():
-                for nested in item.rglob("*"):
-                    if nested.is_file():
-                        archive.write(nested, nested.relative_to(BASE_DIR))
+        for department, config in DEPARTMENTS.items():
+            db_file = config["db"]
+            if db_file.exists():
+                archive.write(db_file, f"databases/{db_file.name}")
+            with connect(department) as db:
+                write_json_archive_entry(
+                    archive,
+                    f"{department}/brands.json",
+                    json_rows(db, "SELECT * FROM brands ORDER BY name COLLATE NOCASE"),
+                )
+                if department == DEFAULT_DEPARTMENT:
+                    write_json_archive_entry(archive, "employees/employees.json", safe_employee_backup_rows(db))
+        if ASSETS_DIR.exists():
+            for nested in ASSETS_DIR.rglob("*"):
+                if nested.is_file():
+                    archive.write(nested, Path("brand-assets") / nested.relative_to(ASSETS_DIR))
     return target
 
 
@@ -1849,7 +1888,7 @@ class PartsHandler(BaseHTTPRequestHandler):
         payload = self.read_json() if int(self.headers.get("Content-Length") or 0) else {}
         if payload is None:
             return
-        if not self.require_permission(payload, "brandEdit", "save and hide brands"):
+        if not self.require_permission(payload, "brandDelete", "save and hide brands"):
             return
         archive_note = clean_text(payload.get("archiveNote"))
         backup_database(self.department, "before-brand-delete")
@@ -1881,7 +1920,7 @@ class PartsHandler(BaseHTTPRequestHandler):
         payload = self.read_json() if int(self.headers.get("Content-Length") or 0) else {}
         if payload is None:
             return
-        if not self.require_permission(payload, "brandEdit", "restore saved brands"):
+        if not self.require_permission(payload, "brandDelete", "restore saved brands"):
             return
         with self.db_connection() as db:
             row = db.execute(
@@ -2060,10 +2099,16 @@ class PartsHandler(BaseHTTPRequestHandler):
         payload = self.read_json()
         if payload is None:
             return
+        brand_name = clean_text(payload.get("brand"))
+        item_name = clean_text(payload.get("item"))
+        part_number = clean_text(payload.get("partNumber"))
+        if not brand_name or not item_name or not part_number:
+            self.send_error_json(HTTPStatus.BAD_REQUEST, "Brand, item, and part number are required.")
+            return
 
         try:
             with self.db_connection() as db:
-                brand_id = get_or_create_brand(db, clean_text(payload.get("brand")))
+                brand_id = get_or_create_brand(db, brand_name)
                 stamp = now_iso()
                 sort_order = db.execute(
                     "SELECT COALESCE(MAX(sort_order), 0) + 1 FROM parts WHERE brand_id = ?",
@@ -2092,9 +2137,9 @@ class PartsHandler(BaseHTTPRequestHandler):
                         clean_text(payload.get("unitType")),
                         normalize_review_status(payload.get("reviewStatus")),
                         clean_text(payload.get("reviewNote")),
-                        clean_text(payload.get("item")) or "Untitled Part",
+                        item_name,
                         clean_text(payload.get("buttonText")),
-                        clean_text(payload.get("partNumber")),
+                        part_number,
                         clean_text(payload.get("oldPartNumber")),
                         clean_text(payload.get("newPartNumber")),
                         clean_text(payload.get("alternateNumbers")),
@@ -2110,7 +2155,7 @@ class PartsHandler(BaseHTTPRequestHandler):
                     ),
                 )
                 part_id = int(db.execute("SELECT last_insert_rowid()").fetchone()[0])
-                record_part_audit(db, part_id, "create", clean_text(payload.get("item")) or "Untitled Part", after=dict(payload))
+                record_part_audit(db, part_id, "create", item_name, after=dict(payload))
         except ValueError as error:
             self.send_error_json(HTTPStatus.BAD_REQUEST, str(error))
             return
@@ -2120,6 +2165,12 @@ class PartsHandler(BaseHTTPRequestHandler):
     def update_part(self, part_id: int) -> None:
         payload = self.read_json()
         if payload is None:
+            return
+        brand_name = clean_text(payload.get("brand"))
+        item_name = clean_text(payload.get("item"))
+        part_number = clean_text(payload.get("partNumber"))
+        if not brand_name or not item_name or not part_number:
+            self.send_error_json(HTTPStatus.BAD_REQUEST, "Brand, item, and part number are required.")
             return
 
         try:
@@ -2137,7 +2188,7 @@ class PartsHandler(BaseHTTPRequestHandler):
                     self.send_error_json(HTTPStatus.NOT_FOUND, "Part not found.")
                     return
 
-                brand_id = get_or_create_brand(db, clean_text(payload.get("brand")))
+                brand_id = get_or_create_brand(db, brand_name)
                 db.execute(
                     """
                     UPDATE parts
@@ -2160,9 +2211,9 @@ class PartsHandler(BaseHTTPRequestHandler):
                         clean_text(payload.get("unitType")),
                         normalize_review_status(payload.get("reviewStatus")),
                         clean_text(payload.get("reviewNote")),
-                        clean_text(payload.get("item")) or "Untitled Part",
+                        item_name,
                         clean_text(payload.get("buttonText")),
-                        clean_text(payload.get("partNumber")),
+                        part_number,
                         clean_text(payload.get("oldPartNumber")),
                         clean_text(payload.get("newPartNumber")),
                         clean_text(payload.get("alternateNumbers")),
@@ -2180,7 +2231,7 @@ class PartsHandler(BaseHTTPRequestHandler):
                     db,
                     part_id,
                     "update",
-                    clean_text(payload.get("item")) or "Untitled Part",
+                    item_name,
                     before=row_to_part(existing),
                     after=dict(payload),
                 )
@@ -2477,7 +2528,7 @@ class PartsHandler(BaseHTTPRequestHandler):
             self.send_error_json(HTTPStatus.CONFLICT, "The staged update files are missing or invalid. Check for updates again.")
             return
 
-        backup = create_app_backup_zip("before-update")
+        backup = create_update_data_backup_zip("before-update")
         copied = []
         try:
             for item in source_dir.iterdir():
@@ -2491,7 +2542,7 @@ class PartsHandler(BaseHTTPRequestHandler):
                 copied.append(item.name)
         except OSError as error:
             log_exception(error, action="apply_staged_update", source=str(source_dir))
-            self.send_error_json(HTTPStatus.SERVICE_UNAVAILABLE, f"Update copy failed. App backup saved: {backup.name}.")
+            self.send_error_json(HTTPStatus.SERVICE_UNAVAILABLE, f"Update copy failed. Data backup saved: {backup.name}.")
             return
 
         meta["installedAt"] = now_iso()

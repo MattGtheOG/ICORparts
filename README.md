@@ -52,7 +52,7 @@ The `Dealership` tab controls the dealership name, location name, department lab
 
 The `Brands` tab contains active brands, saved brands, and brand order controls. Brand order can be A-Z, Z-A, most parts, least parts, or a custom order that can be locked into the database. Deleting a brand asks twice, then saves and hides the brand with its parts so it can be restored later from `Saved Brands`. Saved brands can also be removed forever from the app after entering the admin password; their old database rows and part numbers stay available for admin backup.
 
-Admin Tools include backup creation and restore, import/export, quality reports, backup health, database compact/repair, migration history, error logs, release notes, demo data download, and printable setup/network/deployment sheets. Import, export, brand editing, employee editing, and permanent saved-brand removal are checked against role permissions, with the admin password still available as an override.
+Admin Tools include backup creation and restore, import/export, quality reports, backup health, database compact/repair, migration history, error logs, release notes, demo data download, and printable setup/network/deployment sheets. Import, export, brand editing, brand deletion, employee editing, and permanent saved-brand removal are checked against role permissions, with the admin password still available as an override.
 
 
 ## Demo Database
@@ -123,7 +123,7 @@ Use the GitHub updater after this app is published to `MattGtheOG/ICORparts`:
 
 Or open `Update-CounterFlowFromGitHub.bat`. The GitHub updater downloads the `main` branch, compares the app version, calls the local updater, saves an app backup, and preserves dealership databases, backups, logs, and locally uploaded brand-logo files. Restart CounterFlow after updating.
 
-Signed-in admins can also use `Settings` -> `Admin Tools` -> `Check Updates` inside CounterFlow. The in-app update screen downloads and stages the GitHub package while the server keeps running, shows the current and incoming versions, and enables `Install Update` only when a valid staged update is ready. Installing copies the app files and creates a backup, then CounterFlow should be restarted so all counters use the new version.
+Signed-in admins can also use `Settings` -> `Admin Tools` -> `Check Updates` inside CounterFlow. The in-app update screen downloads and stages the GitHub package while the server keeps running, shows the current and incoming versions, and enables `Install Update` only when a valid staged update is ready. Installing copies the app files and creates a compact data backup containing the databases, brand snapshots, employee snapshot, and brand assets. CounterFlow should be restarted after install so all counters use the new version.
 
 ## Publishing To GitHub
 

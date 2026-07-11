@@ -2,6 +2,20 @@
 
 All notable changes for CounterFlow are recorded here.
 
+## 2026-07-10 - Version 0.14.5
+
+### Added
+
+- Added a Filters button to show or hide the Family, Model, and Category board filters.
+- Added a separate Brand deletion role permission apart from Brand editing.
+
+### Changed
+
+- Update installs now create a compact data backup containing the databases, brand snapshots, employee snapshot, and brand assets instead of zipping the whole application.
+- Simplified the part editor by hiding unit type, review status, review note, button text, old part number, new part number, and vendor fields.
+- Brand, item, and part number are now required when saving parts from the app and API.
+- Updated the app version to `0.14.5`.
+
 ## 2026-07-10 - Version 0.14.4
 
 ### Added

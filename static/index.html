@@ -57,17 +57,18 @@
                 <option value="csvRow">CSV Row</option>
               </select>
             </label>
-            <label>
+            <button id="advanced-filters-toggle" class="secondary-button compact-button" type="button" aria-expanded="false">Filters</button>
+            <label class="advanced-filter-field" hidden>
               <span>Family</span>
               <select id="family-filter"></select>
             </label>
 
-            <label>
+            <label class="advanced-filter-field" hidden>
               <span>Model</span>
               <select id="model-filter"></select>
             </label>
 
-            <label>
+            <label class="advanced-filter-field" hidden>
               <span>Category</span>
               <select id="category-filter"></select>
             </label>
@@ -212,18 +213,18 @@
             <span>Fitment Model</span>
             <input id="part-fitment-model" placeholder="Ranger, Rancher, Defender">
           </label>
-          <label>
+          <label hidden>
             <span>Unit Type</span>
             <input id="part-unit-type" placeholder="ATV, UTV, Motorcycle">
           </label>
-          <label>
+          <label hidden>
             <span>Review Status</span>
             <select id="part-review-status">
               <option value="approved">Approved</option>
               <option value="needs-review">Needs Review</option>
             </select>
           </label>
-          <label>
+          <label hidden>
             <span>Review Note</span>
             <input id="part-review-note" placeholder="Reason this needs confirmation">
           </label>
@@ -231,23 +232,23 @@
             <span>Item</span>
             <input id="part-item" required>
           </label>
-          <label>
+          <label hidden>
             <span>Button Text</span>
             <input id="part-button-text">
           </label>
           <label>
             <span>Part Number</span>
-            <input id="part-number">
+            <input id="part-number" required>
           </label>
-          <label>
+          <label hidden>
             <span>Old Part Number</span>
             <input id="part-old-part-number">
           </label>
-          <label>
+          <label hidden>
             <span>New Part Number</span>
             <input id="part-new-part-number">
           </label>
-          <label>
+          <label hidden>
             <span>Vendor</span>
             <input id="part-vendor">
           </label>
