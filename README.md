@@ -14,6 +14,14 @@ Open `Start-CounterFlow.bat` from this folder. It starts the local web server an
 http://localhost:8765/
 ```
 
+To stop a local server or Windows service that is listening on a port, run:
+
+```powershell
+.\Stop-ServerOnPort.ps1 -Port 8765
+```
+
+The script asks before stopping a process. Add `-Force -Confirm:$false` only when a normal stop does not work.
+
 ## Fresh Empty Installation
 
 Close CounterFlow, then open `Fresh-Install-CounterFlow.bat` to remove the current Parts and Service data and start with empty databases. The reset requires typing `FRESH START` and automatically saves both existing databases under `backups/before-fresh-install-<timestamp>` before removing them. The next start creates clean database schemas and opens the first-admin setup without reloading the starter catalog.

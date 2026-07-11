@@ -2,6 +2,16 @@
 
 All notable changes for CounterFlow are recorded here.
 
+## 2026-07-10 - Version 0.14.8
+
+### Added
+
+- Added `Stop-ServerOnPort.ps1`, a reusable local utility that finds and stops a Windows service or server process listening on a port you specify. It defaults to port `8765` for CounterFlow and asks for confirmation before stopping anything.
+
+### Changed
+
+- Updated the app version to `0.14.8` so the GitHub and in-app update tools can detect this release.
+
 ## 2026-07-10 - Version 0.14.7
 
 ### Added
